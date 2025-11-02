@@ -18,14 +18,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _reverbService = ReverbService.instance;
-  bool _isConnecting = false;
   String? _connectionError;
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeConnection();
-  }
 
   Future<void> _initializeConnection() async {
     if (!_reverbService.isInitialized) {
@@ -33,22 +26,23 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  bool get isDisconnected =>
+      (_reverbService.client?.connectionState ??
+          reverb.ConnectionState.disconnected) ==
+      reverb.ConnectionState.disconnected;
+
   Future<void> _toggleConnection() async {
     setState(() {
-      _isConnecting = true;
       _connectionError = null;
     });
 
     try {
       final client = _reverbService.client;
       if (client != null) {
-        // Check current state
-        final isConnected = await _isClientConnected();
-
-        if (isConnected) {
-          _reverbService.disconnect();
-        } else {
+        if (isDisconnected) {
           await _reverbService.connect();
+        } else {
+          _reverbService.disconnect();
         }
       } else {
         await _reverbService.initialize();
@@ -66,16 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _connectionError = 'Unexpected error: $e';
       });
-    } finally {
-      setState(() {
-        _isConnecting = false;
-      });
     }
-  }
-
-  Future<bool> _isClientConnected() async {
-    // Check if client has a socket ID (indicates connected)
-    return _reverbService.client?.socketId != null;
   }
 
   void _navigateToDemo(BuildContext context, Widget screen) {
