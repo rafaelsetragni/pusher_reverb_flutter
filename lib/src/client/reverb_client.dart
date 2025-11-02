@@ -21,6 +21,29 @@ import '../models/exceptions.dart';
 /// throughout the application lifecycle. Use [ReverbClient.instance] to
 /// access the singleton instance.
 class ReverbClient {
+  /// Interval in seconds for sending ping messages to the server.
+  final int pingIntervalSeconds;
+
+  /// Timer for managing periodic ping messages.
+  Timer? _pingTimer;
+
+  /// Callback para logs customizados.
+  final void Function(
+    String component,
+    int level,
+    String message, [
+    dynamic error,
+  ])?
+  onLog;
+
+  /// Internal log method.
+  void _log(String component, int level, String message, [dynamic error]) {
+    onLog?.call(component, level, message, error);
+  }
+
+  /// Completer to track ongoing reconnection attempts.
+  Completer<void>? _reconnectCompleter;
+
   /// The singleton instance of ReverbClient.
   static ReverbClient? _instance;
 
@@ -149,6 +172,8 @@ class ReverbClient {
     this.onDisconnected,
     this.onError,
     this.channelFactory,
+    this.onLog,
+    this.pingIntervalSeconds = 30,
   }) {
     // Validate required parameters to prevent connection issues
     if (host.isEmpty) {
@@ -228,6 +253,9 @@ class ReverbClient {
     void Function()? onDisconnected,
     void Function(dynamic error)? onError,
     WebSocketChannel Function(Uri uri)? channelFactory,
+    void Function(String component, int level, String message, [dynamic error])?
+    onLog,
+    int pingIntervalSeconds = 30,
   }) {
     if (_instance == null) {
       if (host == null || port == null || appKey == null) {
@@ -252,6 +280,8 @@ class ReverbClient {
         onDisconnected: onDisconnected,
         onError: onError,
         channelFactory: channelFactory,
+        onLog: onLog,
+        pingIntervalSeconds: pingIntervalSeconds,
       );
     }
     return _instance!;
@@ -278,6 +308,8 @@ class ReverbClient {
     void Function()? onDisconnected,
     void Function(dynamic error)? onError,
     WebSocketChannel Function(Uri uri)? channelFactory,
+    void Function(String component, int level, String message, [dynamic error])?
+    onLog,
   }) {
     throw StateError(
       'ReverbClient cannot be instantiated directly. '
@@ -308,6 +340,9 @@ class ReverbClient {
     void Function()? onDisconnected,
     void Function(dynamic error)? onError,
     WebSocketChannel Function(Uri uri)? channelFactory,
+    void Function(String component, int level, String message, [dynamic error])?
+    onLog,
+    int pingIntervalSeconds = 30,
   }) {
     return ReverbClient._internal(
       host: host,
@@ -325,6 +360,8 @@ class ReverbClient {
       onDisconnected: onDisconnected,
       onError: onError,
       channelFactory: channelFactory,
+      onLog: onLog,
+      pingIntervalSeconds: pingIntervalSeconds,
     );
   }
 
