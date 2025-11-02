@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart' as reverb;
+
 import '../services/reverb_service.dart';
-import '../widgets/connection_status_widget.dart';
 import '../widgets/channel_demo_card.dart';
-import 'public_channel_screen.dart';
-import 'private_channel_screen.dart';
-import 'presence_channel_screen.dart';
+import '../widgets/connection_status_widget.dart';
 import 'encrypted_channel_screen.dart';
+import 'presence_channel_screen.dart';
+import 'private_channel_screen.dart';
+import 'public_channel_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
