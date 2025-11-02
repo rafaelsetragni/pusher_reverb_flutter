@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart' as reverb;
 
 class ConnectionStatusWidget extends StatelessWidget {
-  final reverb.ReverbClient client;
+  final reverb.ReverbClient? client;
 
   const ConnectionStatusWidget({super.key, required this.client});
 
@@ -11,7 +11,7 @@ class ConnectionStatusWidget extends StatelessWidget {
     final theme = Theme.of(context);
 
     return StreamBuilder<reverb.ConnectionState>(
-      stream: client.onConnectionStateChange,
+      stream: client?.onConnectionStateChange,
       initialData: reverb.ConnectionState.disconnected,
       builder: (context, snapshot) {
         final state = snapshot.data ?? reverb.ConnectionState.disconnected;
@@ -32,8 +32,10 @@ class ConnectionStatusWidget extends StatelessWidget {
             statusColor = Colors.green;
             statusIcon = Icons.check_circle;
             statusText = 'Connected';
-            final socketId = client.socketId ?? "N/A";
-            final clusterInfo = client.isUsingCluster ? ' (Cluster: ${client.cluster})' : '';
+            final socketId = client?.socketId ?? "N/A";
+            final clusterInfo = client?.isUsingCluster ?? false
+                ? ' (Cluster: ${client?.cluster})'
+                : '';
             statusDescription = 'Socket ID: $socketId$clusterInfo';
             break;
           case reverb.ConnectionState.reconnecting:
@@ -57,7 +59,8 @@ class ConnectionStatusWidget extends StatelessWidget {
         }
 
         return Card(
-          color: statusColor.withValues(alpha: 0.1),
+          color: statusColor.withValues(alpha: 0.2),
+          elevation: 0,
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -66,7 +69,10 @@ class ConnectionStatusWidget extends StatelessWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.2), shape: BoxShape.circle),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                      ),
                       child: Icon(statusIcon, color: statusColor, size: 32),
                     ),
                     const SizedBox(width: 16),
@@ -74,14 +80,31 @@ class ConnectionStatusWidget extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Connection Status', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
+                          Text(
+                            'Connection Status',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
+                            ),
+                          ),
                           const SizedBox(height: 4),
                           Text(
                             statusText,
-                            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: statusColor),
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: statusColor,
+                            ),
                           ),
                           const SizedBox(height: 2),
-                          Text(statusDescription, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.7))),
+                          Text(
+                            statusDescription,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.7,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -91,7 +114,13 @@ class ConnectionStatusWidget extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: statusColor,
                         shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: statusColor.withValues(alpha: 0.5), blurRadius: 8, spreadRadius: 2)],
+                        boxShadow: [
+                          BoxShadow(
+                            color: statusColor.withValues(alpha: 0.5),
+                            blurRadius: 8,
+                            spreadRadius: 2,
+                          ),
+                        ],
                       ),
                     ),
                   ],
