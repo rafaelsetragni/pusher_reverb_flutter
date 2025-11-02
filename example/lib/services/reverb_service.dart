@@ -34,10 +34,7 @@ class ReverbService {
   ReverbService._();
 
   /// Get the singleton instance
-  static ReverbService get instance {
-    _instance ??= ReverbService._();
-    return _instance!;
-  }
+  static ReverbService get instance => _instance ??= ReverbService._();
 
   /// Get the Reverb client (may be null if not initialized)
   ReverbClient? get client => _client;
@@ -168,8 +165,10 @@ class ReverbService {
         log('Connection error: $error', name: 'ReverbService', error: error);
       },
     );
+    final client = _client;
+    if (client == null) return;
     _connectionStateSubscription?.cancel();
-    _connectionStateSubscription = _client!.onConnectionStateChange.listen((
+    _connectionStateSubscription = client.onConnectionStateChange.listen((
       state,
     ) {
       _connectionStateController.add(state);
@@ -178,12 +177,15 @@ class ReverbService {
 
   /// Connect to the Reverb server
   Future<void> connect() async {
-    if (_client == null) {
+    final client = _client;
+    if (client == null) {
       await initialize();
     }
+    final currentClient = _client;
+    if (currentClient == null) return;
 
     try {
-      await _client!.connect();
+      await currentClient.connect();
     } catch (e) {
       debugPrint('[ReverbService] Connection failed: $e');
       rethrow;
@@ -192,11 +194,11 @@ class ReverbService {
 
   /// Disconnect from the Reverb server
   void disconnect() {
-    if (_client != null) {
-      _client!.disconnect();
-      _connectionStateSubscription?.cancel();
-      _connectionStateSubscription = null;
-    }
+    final client = _client;
+    if (client == null) return;
+    client.disconnect();
+    _connectionStateSubscription?.cancel();
+    _connectionStateSubscription = null;
   }
 
   /// Reinitialize the client with new configuration

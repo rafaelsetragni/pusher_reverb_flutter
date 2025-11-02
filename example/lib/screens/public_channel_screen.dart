@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart';
+
 import '../services/reverb_service.dart';
 import '../widgets/event_list_item.dart';
 
@@ -33,7 +34,8 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
   }
 
   Future<void> _subscribe() async {
-    if (_reverbService.client == null) {
+    final client = _reverbService.client;
+    if (client == null) {
       setState(() {
         _error = 'Please connect to the server first from the Home screen';
       });
@@ -51,10 +53,10 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
       final channelName = _channelNameController.text.trim();
 
       // Get or create the channel and subscribe
-      _channel = _reverbService.client!.subscribeToChannel(channelName);
+      final channel = _channel = client.subscribeToChannel(channelName);
 
       // Listen to ALL events via the stream API
-      _channel!.stream.listen((event) {
+      channel.stream.listen((event) {
         setState(() {
           _events.insert(0, event);
           // Keep only the last 50 events
@@ -67,7 +69,7 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
       // Also demonstrate the callback API for a specific event
       final eventName = _eventNameController.text.trim();
       if (eventName.isNotEmpty) {
-        _channel!.bind(eventName, (event, data) {
+        channel.bind(eventName, (event, data) {
           setState(() {
             _callbackMessages.insert(0, 'Callback received: $event - $data');
             if (_callbackMessages.length > 10) {
@@ -100,18 +102,18 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
   }
 
   Future<void> _unsubscribe() async {
-    if (_channel != null) {
-      try {
-        await _channel!.unsubscribe();
-        setState(() {
-          _isSubscribed = false;
-          _channel = null;
-        });
-      } catch (e) {
-        setState(() {
-          _error = 'Error unsubscribing: $e';
-        });
-      }
+    final channel = _channel;
+    if (channel == null) return;
+    try {
+      await channel.unsubscribe();
+      setState(() {
+        _isSubscribed = false;
+        _channel = null;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Error unsubscribing: $e';
+      });
     }
   }
 
@@ -130,7 +132,14 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
       appBar: AppBar(
         title: const Text('Public Channels'),
         elevation: 0,
-        actions: [if (_isSubscribed) IconButton(icon: const Icon(Icons.clear_all), tooltip: 'Clear Events', onPressed: _clearEvents)],
+        actions: [
+          if (_isSubscribed)
+            IconButton(
+              icon: const Icon(Icons.clear_all),
+              tooltip: 'Clear Events',
+              onPressed: _clearEvents,
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -146,16 +155,43 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: Colors.blue, borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.public, color: Colors.white, size: 24),
+                      decoration: BoxDecoration(
+                        color: Colors.blue,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.public,
+                        color: Colors.white,
+                        size: 24,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Public Channels', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                          Text('Open channels accessible to anyone', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
+                          Text(
+                            'Public Channels',
+                            style:
+                                theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ) ??
+                                const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'Open channels accessible to anyone',
+                            style:
+                                theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                ) ??
+                                TextStyle(
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                ),
+                          ),
                         ],
                       ),
                     ),
@@ -172,7 +208,12 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
               children: [
                 TextField(
                   controller: _channelNameController,
-                  decoration: const InputDecoration(labelText: 'Channel Name', hintText: 'notifications', prefixIcon: Icon(Icons.tag), helperText: 'Enter a public channel name'),
+                  decoration: const InputDecoration(
+                    labelText: 'Channel Name',
+                    hintText: 'notifications',
+                    prefixIcon: Icon(Icons.tag),
+                    helperText: 'Enter a public channel name',
+                  ),
                   enabled: !_isSubscribed,
                 ),
                 const SizedBox(height: 12),
@@ -195,7 +236,13 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
                         : _isSubscribed
                         ? _unsubscribe
                         : _subscribe,
-                    icon: _isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : Icon(_isSubscribed ? Icons.cancel : Icons.play_arrow),
+                    icon: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(_isSubscribed ? Icons.cancel : Icons.play_arrow),
                     label: Text(
                       _isLoading
                           ? 'Subscribing...'
@@ -222,7 +269,17 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
                       Icon(Icons.error_outline, color: theme.colorScheme.error),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(_error!, style: TextStyle(color: theme.colorScheme.onErrorContainer)),
+                        child: Builder(
+                          builder: (context) {
+                            final errorMessage = _error ?? '';
+                            return Text(
+                              errorMessage,
+                              style: TextStyle(
+                                color: theme.colorScheme.onErrorContainer,
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ],
                   ),
@@ -238,14 +295,31 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
                 children: [
                   const Icon(Icons.code, size: 20),
                   const SizedBox(width: 8),
-                  Text('Callback API Events', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(
+                    'Callback API Events',
+                    style:
+                        theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ) ??
+                        const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     child: Text(
                       '${_callbackMessages.length}',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],
@@ -261,7 +335,14 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
                   itemBuilder: (context, index) {
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Text(_callbackMessages[index], style: theme.textTheme.bodySmall?.copyWith(fontFamily: 'monospace')),
+                      child: Text(
+                        _callbackMessages[index],
+                        style:
+                            theme.textTheme.bodySmall?.copyWith(
+                              fontFamily: 'monospace',
+                            ) ??
+                            const TextStyle(fontFamily: 'monospace'),
+                      ),
                     );
                   },
                 ),
@@ -277,14 +358,31 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
                 children: [
                   const Icon(Icons.stream, size: 20),
                   const SizedBox(width: 8),
-                  Text('Stream API Events', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(
+                    'Stream API Events',
+                    style:
+                        theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ) ??
+                        const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: Colors.blue, borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     child: Text(
                       '${_events.length}',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],
@@ -299,11 +397,39 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.inbox_outlined, size: 64, color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
+                              Icon(
+                                Icons.inbox_outlined,
+                                size: 64,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.3,
+                                ),
+                              ),
                               const SizedBox(height: 16),
-                              Text('Waiting for events...', style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+                              Text(
+                                'Waiting for events...',
+                                style:
+                                    theme.textTheme.titleMedium?.copyWith(
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.5),
+                                    ) ??
+                                    TextStyle(
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.5),
+                                    ),
+                              ),
                               const SizedBox(height: 8),
-                              Text('Events will appear here when received', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.4))),
+                              Text(
+                                'Events will appear here when received',
+                                style:
+                                    theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.4),
+                                    ) ??
+                                    TextStyle(
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.4),
+                                    ),
+                              ),
                             ],
                           ),
                         )
@@ -318,9 +444,18 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.info_outline, size: 64, color: theme.colorScheme.primary.withValues(alpha: 0.5)),
+                        Icon(
+                          Icons.info_outline,
+                          size: 64,
+                          color: theme.colorScheme.primary.withValues(
+                            alpha: 0.5,
+                          ),
+                        ),
                         const SizedBox(height: 16),
-                        Text('Subscribe to start receiving events', style: theme.textTheme.titleMedium),
+                        Text(
+                          'Subscribe to start receiving events',
+                          style: theme.textTheme.titleMedium,
+                        ),
                       ],
                     ),
                   ),
