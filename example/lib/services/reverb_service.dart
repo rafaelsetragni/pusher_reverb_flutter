@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:developer';
+
 import 'package:flutter/foundation.dart';
 import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -45,7 +47,9 @@ class ReverbService {
     _host = prefs.getString('reverb_host') ?? 'localhost';
     _port = prefs.getInt('reverb_port') ?? 8080;
     _appKey = prefs.getString('reverb_app_key') ?? 'your-app-key';
-    _authEndpoint = prefs.getString('reverb_auth_endpoint') ?? 'http://localhost:8000/broadcasting/auth';
+    _authEndpoint =
+        prefs.getString('reverb_auth_endpoint') ??
+        'http://localhost:8000/broadcasting/auth';
     _wsPath = prefs.getString('reverb_ws_path') ?? '/';
     _authToken = prefs.getString('reverb_auth_token') ?? '';
     _useTLS = prefs.getBool('reverb_use_tls') ?? false;

@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:pusher_reverb_flutter_example/services/reverb_service.dart';
+
 import 'screens/home_screen.dart';
 import 'screens/settings_screen.dart';
 
 void main() {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  ReverbService.instance.loadConfiguration().then((_) {
+    runApp(const MyApp());
+  });
 }
 
 class MyApp extends StatelessWidget {
