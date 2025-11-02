@@ -13,6 +13,10 @@ class ReverbService {
   static ReverbService? _instance;
   ReverbClient? _client;
 
+  StreamSubscription? _connectionStateSubscription;
+  final StreamController<ConnectionState> _connectionStateController =
+      StreamController<ConnectionState>.broadcast();
+
   // Connection configuration
   String _host = 'localhost';
   int _port = 8080;
@@ -37,6 +41,13 @@ class ReverbService {
 
   /// Get the Reverb client (may be null if not initialized)
   ReverbClient? get client => _client;
+
+  /// Exposes a stream of connection state changes.
+  Stream<ConnectionState> get onConnectionStateChange =>
+      _connectionStateController.stream;
+
+  /// Get the current connection state (if client is initialized)
+  ConnectionState? get currentConnectionState => _client?.connectionState;
 
   /// Check if the client is initialized
   bool get isInitialized => _client != null;
@@ -111,10 +122,16 @@ class ReverbService {
   };
 
   /// Sample authorizer function for private channels
-  Future<Map<String, String>> _authorizer(String channelName, String socketId) async {
+  Future<Map<String, String>> _authorizer(
+    String channelName,
+    String socketId,
+  ) async {
     // In a real app, you would fetch the token from secure storage
     // or your authentication service
-    return {'Authorization': 'Bearer $_authToken', 'Content-Type': 'application/json'};
+    return {
+      'Authorization': 'Bearer $_authToken',
+      'Content-Type': 'application/json',
+    };
   }
 
   /// Initialize the Reverb client
@@ -131,22 +148,32 @@ class ReverbService {
       useTLS: _useTLS,
       authorizer: _authorizer,
       authEndpoint: _authEndpoint,
+      onLog: (String name, int logLevel, String message, [dynamic error]) {
+        final timestamp = DateTime.now().toIso8601String();
+        log('[$timestamp] $message', name: name, level: logLevel, error: error);
+      },
       onConnecting: () {
-        debugPrint('[ReverbService] Connecting to server...');
+        log('Connecting to server...', name: 'ReverbService');
       },
       onConnected: (socketId) {
-        debugPrint('[ReverbService] Connected! Socket ID: $socketId');
+        log('Connected! Socket ID: $socketId', name: 'ReverbService');
       },
       onReconnecting: () {
-        debugPrint('[ReverbService] Connection lost. Reconnecting...');
+        log('Connection lost. Reconnecting...', name: 'ReverbService');
       },
       onDisconnected: () {
-        debugPrint('[ReverbService] Disconnected from server');
+        log('Disconnected from server', name: 'ReverbService');
       },
       onError: (error) {
-        debugPrint('[ReverbService] Connection error: $error');
+        log('Connection error: $error', name: 'ReverbService', error: error);
       },
     );
+    _connectionStateSubscription?.cancel();
+    _connectionStateSubscription = _client!.onConnectionStateChange.listen((
+      state,
+    ) {
+      _connectionStateController.add(state);
+    });
   }
 
   /// Connect to the Reverb server
