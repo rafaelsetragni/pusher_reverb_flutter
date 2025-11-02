@@ -17,7 +17,7 @@ dependencies:
   
   # UI and state management
   cupertino_icons: ^1.0.8
-  shared_preferences: ^2.2.3
+  shared_preferences: ^2.5.3
   
   # For secure storage of encryption keys
   flutter_secure_storage: ^9.0.0
