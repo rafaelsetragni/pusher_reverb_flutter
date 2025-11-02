@@ -90,7 +90,8 @@ class ReverbClient {
   final Map<String, Channel> _channels = {};
 
   /// Stream controller for connection state changes.
-  final StreamController<ConnectionState> _connectionStateController = StreamController<ConnectionState>.broadcast();
+  final StreamController<ConnectionState> _connectionStateController =
+      StreamController<ConnectionState>.broadcast();
 
   /// The current connection state.
   ConnectionState _currentConnectionState = ConnectionState.disconnected;
@@ -426,7 +427,12 @@ class ReverbClient {
       }
     }
 
-    return ResolvedConfig(host: finalHost, port: finalPort, useTLS: finalUseTLS, additionalHeaders: additionalHeaders);
+    return ResolvedConfig(
+      host: finalHost,
+      port: finalPort,
+      useTLS: finalUseTLS,
+      additionalHeaders: additionalHeaders,
+    );
   }
 
   /// Gets the list of available clusters.
@@ -487,29 +493,31 @@ class ReverbClient {
   /// It uses exponential backoff to avoid overwhelming the server with reconnection
   /// attempts. The delay is calculated as 2^attempt seconds, capped at [_maxReconnectDelay].
   Future<void> _reconnect() async {
-    // Don't reconnect if disconnect was manual
-    if (_manualDisconnect) {
-      return;
-    }
+    if (_manualDisconnect) return;
+    _reconnectCompleter = Completer<void>();
 
     _reconnectAttempts++;
-
-    // Calculate delay with exponential backoff: 2^attempt seconds, capped at max
-    final delay = Duration(seconds: (pow(2, _reconnectAttempts) as int).clamp(1, _maxReconnectDelay));
-
+    final delay = Duration(
+      seconds: (pow(2, _reconnectAttempts) as int).clamp(1, _maxReconnectDelay),
+    );
+    _log(
+      'ReverbClient',
+      1,
+      'Attempting to reconnect in ${delay.inSeconds}s...',
+    );
     _setConnectionState(ConnectionState.reconnecting);
     onReconnecting?.call();
 
-    await Future.delayed(delay);
-
     try {
+      await Future.any([Future.delayed(delay), _reconnectCompleter!.future]);
+
+      if (_manualDisconnect) return;
       await connect();
-      // Reset attempt counter on successful connection
       _reconnectAttempts = 0;
-    } catch (e) {
-      // Error is already handled by connect() method
-      // Attempt to reconnect again
-      await _reconnect();
+    } catch (_) {
+      if (!_manualDisconnect) await _reconnect();
+    } finally {
+      _reconnectCompleter = null;
     }
   }
 
@@ -525,27 +533,40 @@ class ReverbClient {
       _manualDisconnect = false;
 
       _setConnectionState(ConnectionState.connecting);
+      _log('ReverbClient', 1, 'Connecting to server...');
       onConnecting?.call();
 
       final uri = _constructWebSocketUri();
 
       // Create WebSocket with API key headers if provided
       if (apiKey != null) {
-        final headers = <String, dynamic>{'Authorization': 'Bearer $apiKey', ..._resolvedConfig.additionalHeaders};
-        _channel = channelFactory != null ? channelFactory!(uri) : IOWebSocketChannel.connect(uri, headers: headers);
+        final headers = <String, dynamic>{
+          'Authorization': 'Bearer $apiKey',
+          ..._resolvedConfig.additionalHeaders,
+        };
+        _channel = channelFactory != null
+            ? channelFactory!(uri)
+            : IOWebSocketChannel.connect(uri, headers: headers);
       } else {
-        _channel = channelFactory != null ? channelFactory!(uri) : IOWebSocketChannel.connect(uri);
+        _channel = channelFactory != null
+            ? channelFactory!(uri)
+            : IOWebSocketChannel.connect(uri);
       }
 
       _subscription = _channel?.stream.listen(
         _handleMessage,
         onError: (error) {
           // Wrap WebSocket errors in ConnectionException
-          final exception = ConnectionException('WebSocket error occurred', cause: error);
+          _log('ReverbClient', 3, 'WebSocket error occurred', error);
+          final exception = ConnectionException(
+            'WebSocket error occurred',
+            cause: error,
+          );
           _setConnectionState(ConnectionState.error);
           onError?.call(exception);
         },
         onDone: () {
+          _log('ReverbClient', 2, 'Connection closed by remote');
           _setConnectionState(ConnectionState.disconnected);
           onDisconnected?.call();
           // Trigger automatic reconnection
@@ -583,13 +604,22 @@ class ReverbClient {
 
   /// Closes the connection to the Reverb server.
   void disconnect() {
-    // Mark this as a manual disconnect to prevent auto-reconnect
+    // Mark as manual disconnect to stop auto-reconnect
     _manualDisconnect = true;
+    _log('ReverbClient', 1, 'Manual disconnection requested');
     _reconnectAttempts = 0;
+
+    // Cancel any ongoing reconnection
+    _reconnectCompleter?.complete();
+    _reconnectCompleter = null;
+
+    // Stop ping timer before cleaning up channels and socket
+    _stopPingTimer();
 
     _subscription?.cancel();
     _channel?.sink.close();
-    // Safe clear: create a copy of keys to avoid concurrent modification
+
+    // Safely unsubscribe from all channels
     final channelNames = _channels.keys.toList();
     for (final channelName in channelNames) {
       final channel = _channels[channelName];
@@ -599,8 +629,31 @@ class ReverbClient {
       }
     }
     _channels.clear();
+
     _setConnectionState(ConnectionState.disconnected);
     onDisconnected?.call();
+  }
+
+  void _startPingTimer() {
+    _stopPingTimer();
+    _log(
+      'ReverbClient',
+      0,
+      'Starting ping timer every $pingIntervalSeconds seconds',
+    );
+    _pingTimer = Timer.periodic(Duration(seconds: pingIntervalSeconds), (_) {
+      final pingMessage = jsonEncode({'event': 'pusher:ping'});
+      _sendMessage(pingMessage);
+      _log('ReverbClient', 0, 'Ping sent to server.');
+    });
+  }
+
+  void _stopPingTimer() {
+    if (_pingTimer != null) {
+      _log('ReverbClient', 0, 'Stopping ping timer.');
+      _pingTimer!.cancel();
+      _pingTimer = null;
+    }
   }
 
   /// Subscribes to a public channel.
