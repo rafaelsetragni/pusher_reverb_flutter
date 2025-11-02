@@ -843,43 +843,82 @@ class ReverbClient {
   }
 
   void _handleMessage(dynamic message) {
+    _log('ReverbClient', 0, 'Message received: $message');
     final decodedMessage = jsonDecode(message as String);
-    final event = decodedMessage['event'];
+    final event = decodedMessage['event'] as String?;
     final data = decodedMessage['data'];
 
-    if (event == 'pusher:connection_established') {
-      final connectionData = jsonDecode(data as String);
-      socketId = connectionData['socket_id'] as String?;
-      // Reset reconnection counter on successful connection
-      _reconnectAttempts = 0;
-      _setConnectionState(ConnectionState.connected);
-      onConnected?.call(socketId);
-    } else if (event == 'pusher_internal:subscription_succeeded') {
-      final channelData = jsonDecode(data as String);
-      final channelName = channelData['channel'] as String?;
-      if (channelName != null) {
-        final channel = _channels[channelName];
-        // Pass subscription data for presence channels
-        if (channel is PresenceChannel) {
-          channel.handleSubscriptionSucceeded(channelData);
-        } else {
-          channel?.handleSubscriptionSucceeded();
-        }
-      }
-    } else if (event == 'pusher_internal:unsubscription_succeeded') {
-      final channelData = jsonDecode(data as String);
-      final channelName = channelData['channel'] as String?;
-      if (channelName != null) {
-        final channel = _channels[channelName];
-        channel?.handleUnsubscriptionSucceeded();
-      }
-    } else {
-      // Handle channel events
-      final channelName = decodedMessage['channel'] as String?;
-      if (channelName != null) {
-        final channel = _channels[channelName];
-        channel?.handleEvent(event, data);
-      }
+    if (event == null) {
+      _log('ReverbClient', 900, 'Received message without event type');
+      return;
     }
+
+    switch (event) {
+      case 'pusher:ping':
+        _handlePingRequest(data);
+        break;
+      case 'pusher:connection_established':
+        _handleConnectionEstablished(data);
+        break;
+      case 'pusher_internal:subscription_succeeded':
+        _handleSubscriptionSucceeded(data);
+        break;
+      case 'pusher_internal:unsubscription_succeeded':
+        _handleUnsubscriptionSucceeded(data);
+        break;
+      default:
+        _handleChannelEvent(decodedMessage);
+        break;
+    }
+  }
+
+  void _handlePingRequest(dynamic data) {
+    _log('ReverbClient', 0, 'Received ping from server, sending pong...');
+    final pongMessage = jsonEncode({'event': 'pusher:pong'});
+    _sendMessage(pongMessage);
+    _log('ReverbClient', 0, 'Pong sent to server.');
+  }
+
+  void _handleConnectionEstablished(dynamic data) {
+    final connectionData = jsonDecode(data as String);
+    socketId = connectionData['socket_id'] as String?;
+    _log('ReverbClient', 0, 'Server assigned socket ID: $socketId');
+    _reconnectAttempts = 0;
+    _setConnectionState(ConnectionState.connected);
+    _startPingTimer();
+    _log('ReverbClient', 0, 'Connection established with socket ID: $socketId');
+    onConnected?.call(socketId);
+  }
+
+  void _handleSubscriptionSucceeded(dynamic data) {
+    final channelData = jsonDecode(data as String);
+    final channelName = channelData['channel'] as String?;
+    if (channelName == null) return;
+
+    final channel = _channels[channelName];
+    if (channel is PresenceChannel) {
+      channel.handleSubscriptionSucceeded(channelData);
+    } else {
+      channel?.handleSubscriptionSucceeded();
+    }
+  }
+
+  void _handleUnsubscriptionSucceeded(dynamic data) {
+    final channelData = jsonDecode(data as String);
+    final channelName = channelData['channel'] as String?;
+    if (channelName == null) return;
+
+    final channel = _channels[channelName];
+    channel?.handleUnsubscriptionSucceeded();
+  }
+
+  void _handleChannelEvent(Map<String, dynamic> decodedMessage) {
+    final channelName = decodedMessage['channel'] as String?;
+    if (channelName == null) return;
+
+    final channel = _channels[channelName];
+    final event = decodedMessage['event'];
+    final data = decodedMessage['data'];
+    channel?.handleEvent(event, data);
   }
 }
