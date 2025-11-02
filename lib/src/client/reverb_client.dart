@@ -3,16 +3,17 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:meta/meta.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
-import '../channels/channel.dart';
-import '../channels/private_channel.dart';
-import '../channels/presence_channel.dart';
-import '../channels/encrypted_channel.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
+
 import '../auth/authorizer.dart';
+import '../channels/channel.dart';
+import '../channels/encrypted_channel.dart';
+import '../channels/presence_channel.dart';
+import '../channels/private_channel.dart';
+import '../models/cluster_config.dart';
 import '../models/connection_state.dart';
 import '../models/exceptions.dart';
-import '../models/cluster_config.dart';
 
 /// A client for interacting with a Laravel Reverb WebSocket server.
 ///
