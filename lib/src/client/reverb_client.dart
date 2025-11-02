@@ -587,8 +587,11 @@ class ReverbClient {
   /// Uses the resolved configuration (cluster settings applied if specified).
   /// Uses wss:// protocol if useTLS is true, otherwise uses ws://.
   Uri _constructWebSocketUri() {
-    final path = wsPath ?? '/app/$appKey';
-    final scheme = _resolvedConfig.useTLS ? 'wss' : 'ws';
+    final useTLS = _resolvedConfig.useTLS;
+    final path = ((wsPath?.isEmpty ?? true) || wsPath == '/')
+        ? '/app/$appKey'
+        : '$wsPath';
+    final scheme = useTLS ? 'wss' : 'ws';
     final host = _resolvedConfig.host;
     final port = _resolvedConfig.port;
 
@@ -685,20 +688,34 @@ class ReverbClient {
       if (existingChannel is PrivateChannel) {
         return existingChannel;
       } else {
-        throw ChannelException('Channel already exists as a different channel type. Cannot convert to private channel', channelName: channelName);
+        throw ChannelException(
+          'Channel already exists as a different channel type. Cannot convert to private channel',
+          channelName: channelName,
+        );
       }
     }
 
     if (authorizer == null || authEndpoint == null) {
-      throw ChannelException('Authorizer and authEndpoint must be configured for private channels', channelName: channelName);
+      throw ChannelException(
+        'Authorizer and authEndpoint must be configured for private channels',
+        channelName: channelName,
+      );
     }
 
     if (socketId == null) {
-      throw ConnectionException('Cannot subscribe to channel: not connected to server');
+      throw ConnectionException(
+        'Cannot subscribe to channel: not connected to server',
+      );
     }
 
     final enhancedAuthorizer = _createAuthorizer();
-    final channel = PrivateChannel(name: channelName, authorizer: enhancedAuthorizer, authEndpoint: authEndpoint!, socketId: socketId!, sendMessage: _sendMessage);
+    final channel = PrivateChannel(
+      name: channelName,
+      authorizer: enhancedAuthorizer,
+      authEndpoint: authEndpoint!,
+      socketId: socketId!,
+      sendMessage: _sendMessage,
+    );
 
     _channels[channelName] = channel;
     channel.subscribe();
@@ -720,26 +737,44 @@ class ReverbClient {
   /// Throws [InvalidChannelNameException] if the channel name is not a valid presence channel name.
   /// Throws [ChannelException] if authorizer or authEndpoint are not configured.
   /// Throws [ConnectionException] if not connected to the server.
-  PresenceChannel subscribeToPresenceChannel(String channelName, {Map<String, dynamic>? channelData}) {
+  PresenceChannel subscribeToPresenceChannel(
+    String channelName, {
+    Map<String, dynamic>? channelData,
+  }) {
     if (_channels.containsKey(channelName)) {
       final existingChannel = _channels[channelName]!;
       if (existingChannel is PresenceChannel) {
         return existingChannel;
       } else {
-        throw ChannelException('Channel already exists as a different channel type. Cannot convert to presence channel', channelName: channelName);
+        throw ChannelException(
+          'Channel already exists as a different channel type. Cannot convert to presence channel',
+          channelName: channelName,
+        );
       }
     }
 
     if (authorizer == null || authEndpoint == null) {
-      throw ChannelException('Authorizer and authEndpoint must be configured for presence channels', channelName: channelName);
+      throw ChannelException(
+        'Authorizer and authEndpoint must be configured for presence channels',
+        channelName: channelName,
+      );
     }
 
     if (socketId == null) {
-      throw ConnectionException('Cannot subscribe to channel: not connected to server');
+      throw ConnectionException(
+        'Cannot subscribe to channel: not connected to server',
+      );
     }
 
     final enhancedAuthorizer = _createAuthorizer();
-    final channel = PresenceChannel(name: channelName, authorizer: enhancedAuthorizer, authEndpoint: authEndpoint!, socketId: socketId!, sendMessage: _sendMessage, channelData: channelData);
+    final channel = PresenceChannel(
+      name: channelName,
+      authorizer: enhancedAuthorizer,
+      authEndpoint: authEndpoint!,
+      socketId: socketId!,
+      sendMessage: _sendMessage,
+      channelData: channelData,
+    );
 
     _channels[channelName] = channel;
     channel.subscribe();
@@ -786,16 +821,24 @@ class ReverbClient {
       if (existingChannel is EncryptedChannel) {
         return existingChannel;
       } else {
-        throw ChannelException('Channel already exists as a different channel type. Cannot convert to encrypted channel', channelName: channelName);
+        throw ChannelException(
+          'Channel already exists as a different channel type. Cannot convert to encrypted channel',
+          channelName: channelName,
+        );
       }
     }
 
     if (authorizer == null || authEndpoint == null) {
-      throw ChannelException('Authorizer and authEndpoint must be configured for encrypted channels', channelName: channelName);
+      throw ChannelException(
+        'Authorizer and authEndpoint must be configured for encrypted channels',
+        channelName: channelName,
+      );
     }
 
     if (socketId == null) {
-      throw ConnectionException('Cannot subscribe to channel: not connected to server');
+      throw ConnectionException(
+        'Cannot subscribe to channel: not connected to server',
+      );
     }
 
     final enhancedAuthorizer = _createAuthorizer();
