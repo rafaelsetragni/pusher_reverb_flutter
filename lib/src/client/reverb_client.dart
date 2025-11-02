@@ -178,7 +178,8 @@ class ReverbClient {
   ///   print('Connection state: $state');
   /// });
   /// ```
-  Stream<ConnectionState> get onConnectionStateChange => _connectionStateController.stream;
+  Stream<ConnectionState> get onConnectionStateChange =>
+      _connectionStateController.stream;
 
   /// Gets the current connection state.
   ConnectionState get connectionState => _currentConnectionState;
@@ -224,7 +225,9 @@ class ReverbClient {
 
     // Validate cluster if provided
     if (cluster != null && !_clusters.containsKey(cluster)) {
-      throw ConnectionException('Invalid cluster: $cluster. Available clusters: ${_clusters.keys.join(', ')}');
+      throw ConnectionException(
+        'Invalid cluster: $cluster. Available clusters: ${_clusters.keys.join(', ')}',
+      );
     }
 
     // Resolve configuration
@@ -575,7 +578,9 @@ class ReverbClient {
       );
     } catch (e) {
       // Wrap all connection errors in ConnectionException
-      final exception = e is PusherException ? e : ConnectionException('Failed to connect to server', cause: e);
+      final exception = e is PusherException
+          ? e
+          : ConnectionException('Failed to connect to server', cause: e);
       _setConnectionState(ConnectionState.error);
       onError?.call(exception);
       rethrow;
@@ -812,7 +817,10 @@ class ReverbClient {
   ///   print('Decrypted message: ${event.data}');
   /// });
   /// ```
-  EncryptedChannel encryptedChannel(String channelName, {required String encryptionMasterKey}) {
+  EncryptedChannel encryptedChannel(
+    String channelName, {
+    required String encryptionMasterKey,
+  }) {
     // Validate the channel name early
     validateEncryptedChannelName(channelName);
 
