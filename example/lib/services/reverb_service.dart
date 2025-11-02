@@ -194,6 +194,8 @@ class ReverbService {
   void disconnect() {
     if (_client != null) {
       _client!.disconnect();
+      _connectionStateSubscription?.cancel();
+      _connectionStateSubscription = null;
     }
   }
 
@@ -205,5 +207,11 @@ class ReverbService {
     // Create a new client instance (singleton will be replaced)
     _client = null;
     await initialize();
+  }
+
+  /// Dispose of the service and clean up resources.
+  void dispose() {
+    _connectionStateSubscription?.cancel();
+    _connectionStateController.close();
   }
 }
