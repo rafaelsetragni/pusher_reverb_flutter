@@ -128,13 +128,43 @@ class ReverbClient {
 
   /// Predefined cluster configurations.
   static const Map<String, ClusterConfig> _clusters = {
-    'us-east-1': ClusterConfig(host: 'reverb-us-east-1.pusher.com', port: 443, useTLS: true, region: 'us-east-1'),
-    'us-west-2': ClusterConfig(host: 'reverb-us-west-2.pusher.com', port: 443, useTLS: true, region: 'us-west-2'),
-    'eu-west-1': ClusterConfig(host: 'reverb-eu-west-1.pusher.com', port: 443, useTLS: true, region: 'eu-west-1'),
-    'ap-southeast-1': ClusterConfig(host: 'reverb-ap-southeast-1.pusher.com', port: 443, useTLS: true, region: 'ap-southeast-1'),
+    'us-east-1': ClusterConfig(
+      host: 'reverb-us-east-1.pusher.com',
+      port: 443,
+      useTLS: true,
+      region: 'us-east-1',
+    ),
+    'us-west-2': ClusterConfig(
+      host: 'reverb-us-west-2.pusher.com',
+      port: 443,
+      useTLS: true,
+      region: 'us-west-2',
+    ),
+    'eu-west-1': ClusterConfig(
+      host: 'reverb-eu-west-1.pusher.com',
+      port: 443,
+      useTLS: true,
+      region: 'eu-west-1',
+    ),
+    'ap-southeast-1': ClusterConfig(
+      host: 'reverb-ap-southeast-1.pusher.com',
+      port: 443,
+      useTLS: true,
+      region: 'ap-southeast-1',
+    ),
     // Development clusters
-    'local': ClusterConfig(host: 'localhost', port: 8080, useTLS: false, region: 'local'),
-    'staging': ClusterConfig(host: 'staging-reverb.pusher.com', port: 443, useTLS: true, region: 'staging'),
+    'local': ClusterConfig(
+      host: 'localhost',
+      port: 8080,
+      useTLS: false,
+      region: 'local',
+    ),
+    'staging': ClusterConfig(
+      host: 'staging-reverb.pusher.com',
+      port: 443,
+      useTLS: true,
+      region: 'staging',
+    ),
   };
 
   /// A stream that emits connection state changes.
