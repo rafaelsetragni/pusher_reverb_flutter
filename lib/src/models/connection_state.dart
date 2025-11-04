@@ -1,5 +1,5 @@
 /// Represents the current connection status of the ReverbClient.
-enum ConnectionState {
+enum ReverbConnectionState {
   /// The client is attempting to connect to the server.
   connecting,
 

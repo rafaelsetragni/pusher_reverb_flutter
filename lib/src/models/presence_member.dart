@@ -44,7 +44,12 @@ class PresenceMember {
   /// });
   /// ```
   factory PresenceMember.fromJson(Map<String, dynamic> json) {
-    return PresenceMember(id: json['id'] as String, info: json['info'] is Map<String, dynamic> ? json['info'] as Map<String, dynamic> : {});
+    return PresenceMember(
+      id: json['id'] as String,
+      info: json['info'] is Map<String, dynamic>
+          ? json['info'] as Map<String, dynamic>
+          : {},
+    );
   }
 
   /// Converts this PresenceMember to a JSON map.
@@ -56,14 +61,10 @@ class PresenceMember {
   /// final json = member.toJson();
   /// // {'id': '123', 'info': {'name': 'John Doe'}}
   /// ```
-  Map<String, dynamic> toJson() {
-    return {'id': id, 'info': info};
-  }
+  Map<String, dynamic> toJson() => {'id': id, 'info': info};
 
   @override
-  String toString() {
-    return 'PresenceMember(id: $id, info: $info)';
-  }
+  String toString() => 'PresenceMember(id: $id, info: $info)';
 
   @override
   bool operator ==(Object other) {

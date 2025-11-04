@@ -24,17 +24,23 @@ class ChannelEvent {
   ///   data: {'text': 'Hello, World!'},
   /// );
   /// ```
-  const ChannelEvent({required this.channelName, required this.eventName, required this.data});
+  const ChannelEvent({
+    required this.channelName,
+    required this.eventName,
+    required this.data,
+  });
 
   @override
-  String toString() {
-    return 'ChannelEvent(channelName: $channelName, eventName: $eventName, data: $data)';
-  }
+  String toString() =>
+      'ChannelEvent(channelName: $channelName, eventName: $eventName, data: $data)';
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is ChannelEvent && other.channelName == channelName && other.eventName == eventName && other.data == data;
+    return other is ChannelEvent &&
+        other.channelName == channelName &&
+        other.eventName == eventName &&
+        other.data == data;
   }
 
   @override

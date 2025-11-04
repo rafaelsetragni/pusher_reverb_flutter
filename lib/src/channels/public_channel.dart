@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
-import '../exceptions/exceptions.dart';
-import '../validations/channel_validation.dart';
+import 'package:pusher_reverb_flutter/src/validations/channel_validation.dart';
+
 import 'channel.dart';
 
 /// A private channel that requires authentication for subscription.
@@ -10,19 +10,15 @@ import 'channel.dart';
 /// Private channels extend the base Channel functionality with authentication
 /// capabilities. They must start with the "private-" prefix and require
 /// an authorizer function to provide authentication headers.
-class PrivateChannel extends Channel {
+class PublicChannel extends Channel {
   /// Creates a new PrivateChannel instance.
   ///
   /// [name] The name of the private channel (must start with "private-").
   /// [authorizer] The function that provides authentication headers.
   /// [authEndpoint] The URL endpoint for authentication requests.
-  /// [socketId] The socket ID for authentication.
   /// [sendMessage] Callback for sending WebSocket messages.
-  PrivateChannel({required super.name, required super.sendMessage}) {
-    // Only validate if this is actually a PrivateChannel, not a subclass
-    if (runtimeType == PrivateChannel) {
-      validatePrivateChannelName(name);
-    }
+  PublicChannel({required super.name, required super.sendMessage}) {
+    validatePublicChannelName(name);
   }
 
   /// Subscribes to the private channel with authentication.
@@ -30,32 +26,20 @@ class PrivateChannel extends Channel {
   /// This method first authenticates with the server using the authorizer
   /// function, then proceeds with the normal subscription process.
   @override
-  Future<void> subscribe({String? authKey}) async {
-    if (authKey == null) {
-      throw ChannelException.withoutAuthentication();
-    }
-
+  Future<void> subscribe() async {
     if (state == ChannelState.subscribed || state == ChannelState.subscribing) {
       return;
     }
 
     setState(ChannelState.subscribing);
 
-    try {
-      // Send subscription message with auth key
-      final message = {
-        'event': 'pusher:subscribe',
-        'data': {'channel': name, 'auth': authKey},
-      };
-      sendMessage(_encodeMessage(message));
-    } catch (e) {
-      // Only update state if still subscribing (not already unsubscribed)
-      if (state == ChannelState.subscribing) {
-        setState(ChannelState.unsubscribed);
-        rethrow;
-      }
-      // If already unsubscribed, silently ignore the error
-    }
+    // Send subscription message with auth key
+    final message = {
+      'event': 'pusher:subscribe',
+      'data': {'channel': name},
+    };
+
+    sendMessage(_encodeMessage(message));
   }
 
   /// Encodes a message to JSON string.

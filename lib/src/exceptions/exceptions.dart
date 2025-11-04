@@ -49,6 +49,12 @@ class ConnectionException extends PusherException {
   /// Creates a new ConnectionException.
   const ConnectionException(super.message, {this.cause});
 
+  factory ConnectionException.notConnected() =>
+      ConnectionException('Not connected to server');
+
+  factory ConnectionException.notConfigured() =>
+      ConnectionException('Not connected to server');
+
   @override
   String toString() {
     final causeInfo = cause != null ? ' (Caused by: $cause)' : '';
@@ -76,13 +82,26 @@ class ChannelException extends PusherException {
   final String? channelName;
 
   /// Creates a new ChannelException.
-  const ChannelException(super.message, {this.channelName});
+  const ChannelException._(super.message, {this.channelName});
 
   @override
   String toString() {
-    final channelInfo = channelName != null ? ' for channel "$channelName"' : '';
+    final channelInfo = channelName != null
+        ? ' for channel "$channelName"'
+        : '';
     return 'ChannelException: $message$channelInfo';
   }
+
+  factory ChannelException.mismatchedChannelType(
+    String channelType,
+    String channelName,
+  ) => ChannelException._(
+    'Channel already exists as a different channel type. Cannot convert to $channelType channel',
+    channelName: channelName,
+  );
+
+  factory ChannelException.withoutAuthentication() =>
+      ChannelException._('Private channels requires authentication');
 }
 
 /// Exception thrown when a channel name is invalid.
@@ -111,7 +130,8 @@ class InvalidChannelNameException extends PusherException {
   const InvalidChannelNameException(super.message, this.channelName);
 
   @override
-  String toString() => 'InvalidChannelNameException: $message (Channel: "$channelName")';
+  String toString() =>
+      'InvalidChannelNameException: $message (Channel: "$channelName")';
 }
 
 /// Exception thrown when authentication fails for private/presence/encrypted channels.
@@ -142,7 +162,11 @@ class AuthenticationException extends PusherException {
   final String channelName;
 
   /// Creates a new AuthenticationException.
-  const AuthenticationException({required String message, this.statusCode, required this.channelName}) : super(message);
+  const AuthenticationException({
+    required String message,
+    this.statusCode,
+    required this.channelName,
+  }) : super(message);
 
   @override
   String toString() {

@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:meta/meta.dart';
+
 import '../models/channel_event.dart';
-import '../models/exceptions.dart';
 
 /// Represents a channel state for subscription management.
 enum ChannelState {
@@ -26,8 +26,8 @@ typedef ChannelEventListener = void Function(String eventName, dynamic data);
 /// A callback function for handling channel state changes.
 typedef ChannelStateListener = void Function(ChannelState state);
 
-/// A public channel for subscribing to real-time events.
-class Channel {
+/// A channel contract for subscribing to real-time events.
+abstract class Channel {
   /// The name of the channel.
   final String name;
 
@@ -47,64 +47,33 @@ class Channel {
   final List<ChannelStateListener> _stateListeners = [];
 
   /// Stream controller for channel events.
-  final StreamController<ChannelEvent> _eventStreamController = StreamController<ChannelEvent>.broadcast();
+  final StreamController<ChannelEvent> _eventStreamController =
+      StreamController<ChannelEvent>.broadcast();
 
   /// Creates a new Channel instance.
-  Channel({required this.name, required void Function(String message) sendMessage}) : _sendMessage = sendMessage {
-    _validateChannelName();
-  }
-
-  /// Validates the channel name according to Pusher conventions.
-  void _validateChannelName() {
-    if (name.isEmpty) {
-      throw InvalidChannelNameException('Channel name cannot be empty', name);
-    }
-
-    if (name.length > 200) {
-      throw InvalidChannelNameException('Channel name cannot exceed 200 characters', name);
-    }
-
-    // Check for invalid characters
-    final invalidChars = RegExp(r'[^a-zA-Z0-9_\-=@,.;]');
-    if (invalidChars.hasMatch(name)) {
-      throw InvalidChannelNameException(
-        'Channel name contains invalid characters. Only alphanumeric characters, '
-        'underscores, hyphens, equals signs, at signs, commas, periods, and semicolons are allowed',
-        name,
-      );
-    }
-  }
+  Channel({
+    required this.name,
+    required void Function(String message) sendMessage,
+  }) : _sendMessage = sendMessage;
 
   /// Subscribes to the channel.
-  Future<void> subscribe() async {
-    if (_state == ChannelState.subscribed || _state == ChannelState.subscribing) {
-      return;
-    }
-
-    _setState(ChannelState.subscribing);
-
-    final message = {
-      'event': 'pusher:subscribe',
-      'data': {'channel': name},
-    };
-
-    _sendMessage(_encodeMessage(message));
-  }
+  Future<void> subscribe();
 
   /// Unsubscribes from the channel.
   Future<void> unsubscribe() async {
-    if (_state == ChannelState.unsubscribed || _state == ChannelState.unsubscribing) {
+    if (state == ChannelState.unsubscribed ||
+        state == ChannelState.unsubscribing) {
       return;
     }
 
-    _setState(ChannelState.unsubscribing);
+    setState(ChannelState.unsubscribing);
 
     final message = {
       'event': 'pusher:unsubscribe',
       'data': {'channel': name},
     };
 
-    _sendMessage(_encodeMessage(message));
+    sendMessage(_encodeMessage(message));
   }
 
   /// A stream that emits all events received on this channel.
@@ -199,7 +168,11 @@ class Channel {
   /// Handles incoming events for this channel.
   void handleEvent(String eventName, dynamic data) {
     // Emit event to stream
-    final channelEvent = ChannelEvent(channelName: name, eventName: eventName, data: data);
+    final channelEvent = ChannelEvent(
+      channelName: name,
+      eventName: eventName,
+      data: data,
+    );
     _eventStreamController.add(channelEvent);
 
     // Also call callback-based listeners for backward compatibility
@@ -242,7 +215,9 @@ class Channel {
     if (_state != newState) {
       _state = newState;
       // Safe iteration: create a copy to avoid concurrent modification
-      final stateListenersCopy = List<ChannelStateListener>.from(_stateListeners);
+      final stateListenersCopy = List<ChannelStateListener>.from(
+        _stateListeners,
+      );
       for (final listener in stateListenersCopy) {
         listener(newState);
       }
