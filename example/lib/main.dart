@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:pusher_reverb_flutter_example/services/reverb_service.dart';
 
@@ -6,13 +8,37 @@ import 'screens/settings_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  ReverbService.instance.loadConfiguration().then((_) {
+  ReverbService().loadConfiguration().then((configuration) async {
+    await ReverbService().saveConfiguration(configuration);
     runApp(const MyApp());
   });
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> implements ReverbLogListener {
+  @override
+  void initState() {
+    ReverbService().addLogListener(this);
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    ReverbService().removeLogListener(this);
+    super.dispose();
+  }
+
+  @override
+  void onReverbLog(String name, int logLevel, String message, [error]) {
+    final timestamp = DateTime.now().toIso8601String();
+    log('[$timestamp] $message', name: name, level: logLevel, error: error);
+  }
 
   @override
   Widget build(BuildContext context) {

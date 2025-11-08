@@ -40,13 +40,6 @@ void validatePublicChannelName(String channelName) {
     );
   }
 
-  if (!channelNameNotContainsPrivatePrefix(channelName)) {
-    throw InvalidChannelNameException(
-      'Public channel name cannot start with "private-" prefix',
-      channelName,
-    );
-  }
-
   if (!channelNameNotContainsPrivateEncryptedPrefix(channelName)) {
     throw InvalidChannelNameException(
       'Public channel name cannot start with "private-encrypted-" prefix',
@@ -57,6 +50,13 @@ void validatePublicChannelName(String channelName) {
   if (!channelNameNotContainsPresencePrefix(channelName)) {
     throw InvalidChannelNameException(
       'Public channel name cannot start with "presence-" prefix',
+      channelName,
+    );
+  }
+
+  if (!channelNameNotContainsPrivatePrefix(channelName)) {
+    throw InvalidChannelNameException(
+      'Public channel name cannot start with "private-" prefix',
       channelName,
     );
   }

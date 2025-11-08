@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart';
 
 import '../services/reverb_service.dart';
 import '../widgets/event_list_item.dart';
@@ -12,11 +11,10 @@ class PublicChannelScreen extends StatefulWidget {
 }
 
 class _PublicChannelScreenState extends State<PublicChannelScreen> {
-  final _reverbService = ReverbService.instance;
   final _channelNameController = TextEditingController(text: 'notifications');
   final _eventNameController = TextEditingController(text: 'message');
 
-  Channel? _channel;
+  Stream? _channelStream;
   final List<ChannelEvent> _events = [];
   bool _isSubscribed = false;
   bool _isLoading = false;
@@ -34,8 +32,7 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
   }
 
   Future<void> _subscribe() async {
-    final client = _reverbService.client;
-    if (client == null) {
+    if (!ReverbService().isConnected) {
       setState(() {
         _error = 'Please connect to the server first from the Home screen';
       });
@@ -53,7 +50,19 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
       final channelName = _channelNameController.text.trim();
 
       // Get or create the channel and subscribe
-      final channel = _channel = client.subscribeToChannel(channelName);
+      final channel = await ReverbService().registerPublicChannel(channelName);
+      if (channel == null) {
+        setState(() {
+          _error = 'The channel name is invalid or not available';
+        });
+        return;
+      }
+
+      setState(() {
+        _channelStream = channel.stream;
+        _isSubscribed = true;
+        _isLoading = false;
+      });
 
       // Listen to ALL events via the stream API
       channel.stream.listen((event) {
@@ -68,47 +77,39 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
 
       // Also demonstrate the callback API for a specific event
       final eventName = _eventNameController.text.trim();
-      if (eventName.isNotEmpty) {
-        channel.bind(eventName, (event, data) {
-          setState(() {
-            _callbackMessages.insert(0, 'Callback received: $event - $data');
-            if (_callbackMessages.length > 10) {
-              _callbackMessages.removeLast();
-            }
-          });
-        });
-      }
+      if (eventName.isEmpty) return;
 
-      setState(() {
-        _isSubscribed = true;
-        _isLoading = false;
+      channel.bind(eventName, (event, data) {
+        setState(() {
+          _callbackMessages.insert(0, 'Callback received: $event - $data');
+          if (_callbackMessages.length > 10) {
+            _callbackMessages.removeLast();
+          }
+        });
       });
     } on InvalidChannelNameException catch (e) {
       setState(() {
         _error = 'Invalid channel name: ${e.message}';
-        _isLoading = false;
       });
     } on ChannelException catch (e) {
-      setState(() {
-        _error = 'Channel error: ${e.message}';
-        _isLoading = false;
-      });
+      _error = 'Channel error: ${e.message}';
     } catch (e) {
+      _error = 'Error: $e';
+    } finally {
       setState(() {
-        _error = 'Error: $e';
         _isLoading = false;
       });
     }
   }
 
   Future<void> _unsubscribe() async {
-    final channel = _channel;
+    final channel = _channelStream;
     if (channel == null) return;
     try {
       await channel.unsubscribe();
       setState(() {
         _isSubscribed = false;
-        _channel = null;
+        _channelStream = null;
       });
     } catch (e) {
       setState(() {

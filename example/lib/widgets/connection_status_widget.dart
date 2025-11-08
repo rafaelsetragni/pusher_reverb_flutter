@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart' as reverb;
 
-class ConnectionStatusWidget extends StatelessWidget {
-  final reverb.ReverbClient? client;
+import '../services/reverb_service.dart';
 
-  const ConnectionStatusWidget({super.key, required this.client});
+class ConnectionStatusWidget extends StatelessWidget {
+  const ConnectionStatusWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return StreamBuilder<reverb.ConnectionState>(
-      stream: client?.onConnectionStateChange,
-      initialData: reverb.ConnectionState.disconnected,
+    return StreamBuilder<reverb.ReverbConnectionState>(
+      stream: ReverbService().onConnectionStateChange,
+      initialData: reverb.ReverbConnectionState.disconnected,
       builder: (context, snapshot) {
-        final state = snapshot.data ?? reverb.ConnectionState.disconnected;
+        final state =
+            snapshot.data ?? reverb.ReverbConnectionState.disconnected;
 
         Color statusColor;
         IconData statusIcon;
@@ -22,35 +23,35 @@ class ConnectionStatusWidget extends StatelessWidget {
         String statusDescription;
 
         switch (state) {
-          case reverb.ConnectionState.connecting:
+          case reverb.ReverbConnectionState.connecting:
             statusColor = Colors.orange;
             statusIcon = Icons.sync;
             statusText = 'Connecting';
             statusDescription = 'Establishing connection to server...';
             break;
-          case reverb.ConnectionState.connected:
+          case reverb.ReverbConnectionState.connected:
             statusColor = Colors.green;
             statusIcon = Icons.check_circle;
             statusText = 'Connected';
-            final socketId = client?.socketId ?? "N/A";
-            final clusterInfo = client?.isUsingCluster ?? false
-                ? ' (Cluster: ${client?.cluster})'
+            final socketId = ReverbService().socketId ?? "N/A";
+            final clusterInfo = ReverbService().isUsingCluster ?? false
+                ? ' (Cluster: ${ReverbService().cluster})'
                 : '';
             statusDescription = 'Socket ID: $socketId$clusterInfo';
             break;
-          case reverb.ConnectionState.reconnecting:
+          case reverb.ReverbConnectionState.reconnecting:
             statusColor = Colors.amber;
             statusIcon = Icons.refresh;
             statusText = 'Reconnecting';
             statusDescription = 'Attempting to restore connection...';
             break;
-          case reverb.ConnectionState.disconnected:
+          case reverb.ReverbConnectionState.disconnected:
             statusColor = Colors.grey;
             statusIcon = Icons.cloud_off;
             statusText = 'Disconnected';
             statusDescription = 'Not connected to server';
             break;
-          case reverb.ConnectionState.error:
+          case reverb.ReverbConnectionState.error:
             statusColor = Colors.red;
             statusIcon = Icons.error;
             statusText = 'Error';

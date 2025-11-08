@@ -17,19 +17,17 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final _reverbService = ReverbService.instance;
   String? _connectionError;
 
   Future<void> _initializeConnection() async {
-    if (!_reverbService.isInitialized) {
-      await _reverbService.initialize();
+    if (!ReverbService().isInitialized) {
+      await ReverbService().initialize();
     }
   }
 
   bool get isDisconnected =>
-      (_reverbService.client?.connectionState ??
-          reverb.ConnectionState.disconnected) ==
-      reverb.ConnectionState.disconnected;
+      ReverbService().connectionState ==
+      reverb.ReverbConnectionState.disconnected;
 
   Future<void> _toggleConnection() async {
     setState(() {
@@ -37,16 +35,10 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      final client = _reverbService.client;
-      if (client != null) {
-        if (isDisconnected) {
-          await _reverbService.connect();
-        } else {
-          _reverbService.disconnect();
-        }
+      if (isDisconnected) {
+        await ReverbService().connect();
       } else {
-        await _reverbService.initialize();
-        await _reverbService.connect();
+        await ReverbService().disconnect();
       }
     } on reverb.ConnectionException catch (e) {
       setState(() {
@@ -70,11 +62,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return StreamBuilder<reverb.ConnectionState>(
-      stream: _reverbService.onConnectionStateChange,
+    return StreamBuilder<reverb.ReverbConnectionState>(
+      stream: ReverbService().onConnectionStateChange,
       builder: (context, snapshot) {
         final connectionState =
-            snapshot.data ?? _reverbService.currentConnectionState;
+            snapshot.data ?? ReverbService().connectionState;
         return Scaffold(
           appBar: AppBar(
             title: const Text('Pusher Reverb Flutter'),
@@ -129,7 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 24),
 
                   // Connection Status
-                  ConnectionStatusWidget(client: _reverbService.client),
+                  ConnectionStatusWidget(),
 
                   const SizedBox(height: 16),
 

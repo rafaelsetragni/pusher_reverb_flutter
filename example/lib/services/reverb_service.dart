@@ -1,219 +1,178 @@
 import 'dart:async';
-import 'dart:developer';
 
-import 'package:flutter/foundation.dart';
-import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart';
+import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart' as rb;
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Service class that manages the Reverb client connection.
+import '../exceptions/service_exceptions.dart';
+import '../models/reverb_config.dart';
+
+part 'reverb_channel_service.dart';
+part 'reverb_connection_service.dart';
+
+typedef ChannelEvent = rb.ChannelEvent;
+
+typedef WebsocketChannel = rb.ReverbChannel;
+typedef WebsocketPublicChannel = rb.ReverbPublicChannel;
+typedef WebsocketPrivateChannel = rb.ReverbPrivateChannel;
+typedef WebsocketEncryptedChannel = rb.ReverbEncryptedChannel;
+
+abstract class ReverbLogListener {
+  void onReverbLog(String name, int logLevel, String message, [dynamic error]);
+}
+
+/// Public interface for the Reverb service (facade).
 ///
-/// This service handles initialization, connection management, and provides
-/// easy access to the Reverb client throughout the application.
-class ReverbService {
-  static ReverbService? _instance;
-  ReverbClient? _client;
+/// Use [ReverbService.instance] to access the singleton implementation.
+abstract class ReverbService {
+  /// Singleton access point (through the interface).
+  factory ReverbService() => ReverbServiceImpl.instance;
 
-  StreamSubscription? _connectionStateSubscription;
-  final StreamController<ConnectionState> _connectionStateController =
-      StreamController<ConnectionState>.broadcast();
+  // --- Connection (delegates to ReverbConnectionService) ---
 
-  // Connection configuration
-  String _host = 'localhost';
-  int _port = 8080;
-  String _appKey = 'your-app-key';
-  String _authEndpoint = 'http://localhost:8000/broadcasting/auth';
-  String _wsPath = '/';
-  String _authToken = '';
-  bool _useTLS = false;
+  ReverbConfig get currentConfig;
+  bool get isConnected;
 
-  // NEW: API key and cluster support
-  String _apiKey = '';
-  String _cluster = '';
+  rb.ReverbConnectionState get connectionState;
+  Stream<rb.ReverbConnectionState> get onConnectionStateChange;
 
-  // Private constructor for singleton
-  ReverbService._();
+  String? get socketId;
 
-  /// Get the singleton instance
-  static ReverbService get instance => _instance ??= ReverbService._();
+  bool? get isUsingCluster;
 
-  /// Get the Reverb client (may be null if not initialized)
-  ReverbClient? get client => _client;
+  String? get cluster;
 
-  /// Exposes a stream of connection state changes.
-  Stream<ConnectionState> get onConnectionStateChange =>
-      _connectionStateController.stream;
+  Future<ReverbConfig> loadConfiguration();
+  Future<void> saveConfiguration(ReverbConfig config);
 
-  /// Get the current connection state (if client is initialized)
-  ConnectionState? get currentConnectionState => _client?.connectionState;
+  // --- Logging listeners ---
+  void addLogListener(ReverbLogListener listener);
+  void removeLogListener(ReverbLogListener listener);
 
-  /// Check if the client is initialized
-  bool get isInitialized => _client != null;
+  // --- Channels (delegates to ReverbChannelService) ---
+  Future<WebsocketPublicChannel> registerPublicChannel(String channelName);
 
-  /// Load configuration from shared preferences
-  Future<void> loadConfiguration() async {
-    final prefs = await SharedPreferences.getInstance();
-    _host = prefs.getString('reverb_host') ?? 'localhost';
-    _port = prefs.getInt('reverb_port') ?? 8080;
-    _appKey = prefs.getString('reverb_app_key') ?? 'your-app-key';
-    _authEndpoint =
-        prefs.getString('reverb_auth_endpoint') ??
-        'http://localhost:8000/broadcasting/auth';
-    _wsPath = prefs.getString('reverb_ws_path') ?? '/';
-    _authToken = prefs.getString('reverb_auth_token') ?? '';
-    _useTLS = prefs.getBool('reverb_use_tls') ?? false;
+  Future<WebsocketPrivateChannel> registerPrivateChannel(String channelName);
 
-    // NEW: Load API key and cluster
-    _apiKey = prefs.getString('reverb_api_key') ?? '';
-    _cluster = prefs.getString('reverb_cluster') ?? '';
+  WebsocketEncryptedChannel registerEncryptedChannel(
+    String channelName, {
+    required String encryptionMasterKey,
+  });
+
+  Future<void> unsubscribe(String channelName);
+  Future<void> unsubscribeAll();
+
+  Future<void> connect() async {}
+
+  Future<void> disconnect() async {}
+}
+
+/// Concrete implementation hidden behind [ReverbService].
+class ReverbServiceImpl implements ReverbService {
+  ReverbServiceImpl._();
+  static ReverbServiceImpl? _singleton;
+  static ReverbServiceImpl get instance => _singleton ??= ReverbServiceImpl._();
+
+  ReverbConnectionService get _connection => ReverbConnectionService.instance;
+  ReverbChannelService get _channels => ReverbChannelService();
+
+  final List<ReverbLogListener> _logListeners = [];
+
+  @override
+  ReverbConfig get currentConfig => _connection.currentConfig;
+
+  @override
+  String? get socketId => _connection.client?.socketId;
+
+  @override
+  String? get cluster => _connection.client?.reverbConfig.cluster;
+
+  @override
+  bool? get isUsingCluster => cluster != null;
+
+  @override
+  bool get isConnected =>
+      _connection.currentConnectionState == rb.ReverbConnectionState.connected;
+
+  @override
+  rb.ReverbConnectionState get connectionState =>
+      _connection.currentConnectionState;
+
+  @override
+  Future<ReverbConfig> loadConfiguration() => _connection.loadConfiguration();
+
+  @override
+  Future<void> saveConfiguration(ReverbConfig config) =>
+      _connection.saveConfiguration(config);
+
+  @override
+  Stream<rb.ReverbConnectionState> get onConnectionStateChange =>
+      _connection.onConnectionStateChange;
+
+  @override
+  Future<void> connect() => _connection.connect();
+
+  @override
+  Future<void> disconnect() => _connection.disconnect();
+
+  @override
+  void addLogListener(ReverbLogListener listener) {
+    if (!_logListeners.contains(listener)) {
+      _logListeners.add(listener);
+    }
   }
 
-  /// Save configuration to shared preferences
-  Future<void> saveConfiguration({
-    required String host,
-    required int port,
-    required String appKey,
-    required String authEndpoint,
-    required String wsPath,
-    required String authToken,
-    required bool useTLS,
-    String? apiKey, // NEW
-    String? cluster, // NEW
-  }) async {
-    _host = host;
-    _port = port;
-    _appKey = appKey;
-    _authEndpoint = authEndpoint;
-    _wsPath = wsPath;
-    _authToken = authToken;
-    _useTLS = useTLS;
-
-    // NEW: Save API key and cluster
-    _apiKey = apiKey ?? '';
-    _cluster = cluster ?? '';
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('reverb_host', host);
-    await prefs.setInt('reverb_port', port);
-    await prefs.setString('reverb_app_key', appKey);
-    await prefs.setString('reverb_auth_endpoint', authEndpoint);
-    await prefs.setString('reverb_ws_path', wsPath);
-    await prefs.setString('reverb_auth_token', authToken);
-    await prefs.setBool('reverb_use_tls', useTLS);
-
-    // NEW: Save API key and cluster
-    await prefs.setString('reverb_api_key', _apiKey);
-    await prefs.setString('reverb_cluster', _cluster);
+  @override
+  void removeLogListener(ReverbLogListener listener) {
+    _logListeners.remove(listener);
   }
 
-  /// Get current configuration
-  Map<String, dynamic> get configuration => {
-    'host': _host,
-    'port': _port,
-    'appKey': _appKey,
-    'authEndpoint': _authEndpoint,
-    'wsPath': _wsPath,
-    'authToken': _authToken,
-    'useTLS': _useTLS,
-    'apiKey': _apiKey, // NEW
-    'cluster': _cluster, // NEW
-  };
+  /// Emits a log message to all registered listeners.
+  void emitLog(String name, int logLevel, String message, [dynamic error]) {
+    for (final listener in _logListeners) {
+      listener.onReverbLog(name, logLevel, message, error);
+    }
+  }
 
-  /// Sample authorizer function for private channels
-  Future<Map<String, String>> _authorizer(
+  // --- Channels ---
+
+  @override
+  Future<WebsocketPublicChannel> registerPublicChannel(
     String channelName,
-    String socketId,
   ) async {
-    // In a real app, you would fetch the token from secure storage
-    // or your authentication service
-    return {
-      'Authorization': 'Bearer $_authToken',
-      'Content-Type': 'application/json',
-    };
+    final channel = await _channels.registerPublicChannel(channelName);
+    // Example of emitting a log via the facade when subscription succeeds.
+    emitLog('ReverbService', 20, 'Subscribed to $channelName');
+    return channel;
   }
 
-  /// Initialize the Reverb client
-  Future<void> initialize() async {
-    await loadConfiguration();
-
-    _client = ReverbClient.instance(
-      host: _host,
-      port: _port,
-      appKey: _appKey,
-      apiKey: _apiKey.isNotEmpty ? _apiKey : null, // NEW
-      cluster: _cluster.isNotEmpty ? _cluster : null, // NEW
-      wsPath: _wsPath,
-      useTLS: _useTLS,
-      authorizer: _authorizer,
-      authEndpoint: _authEndpoint,
-      onLog: (String name, int logLevel, String message, [dynamic error]) {
-        final timestamp = DateTime.now().toIso8601String();
-        log('[$timestamp] $message', name: name, level: logLevel, error: error);
-      },
-      onConnecting: () {
-        log('Connecting to server...', name: 'ReverbService');
-      },
-      onConnected: (socketId) {
-        log('Connected! Socket ID: $socketId', name: 'ReverbService');
-      },
-      onReconnecting: () {
-        log('Connection lost. Reconnecting...', name: 'ReverbService');
-      },
-      onDisconnected: () {
-        log('Disconnected from server', name: 'ReverbService');
-      },
-      onError: (error) {
-        log('Connection error: $error', name: 'ReverbService', error: error);
-      },
-    );
-    final client = _client;
-    if (client == null) return;
-    _connectionStateSubscription?.cancel();
-    _connectionStateSubscription = client.onConnectionStateChange.listen((
-      state,
-    ) {
-      _connectionStateController.add(state);
-    });
+  @override
+  Future<WebsocketPrivateChannel> registerPrivateChannel(
+    String channelName,
+  ) async {
+    final channel = await _channels.registerPrivateChannel(channelName);
+    // Example of emitting a log via the facade when subscription succeeds.
+    emitLog('ReverbService', 20, 'Subscribed to $channelName');
+    return channel;
   }
 
-  /// Connect to the Reverb server
-  Future<void> connect() async {
-    final client = _client;
-    if (client == null) {
-      await initialize();
-    }
-    final currentClient = _client;
-    if (currentClient == null) return;
-
-    try {
-      await currentClient.connect();
-    } catch (e) {
-      debugPrint('[ReverbService] Connection failed: $e');
-      rethrow;
-    }
+  @override
+  WebsocketEncryptedChannel registerEncryptedChannel(
+    String channelName, {
+    required String encryptionMasterKey,
+  }) {
+    // TODO: implement createEncryptedChannel
+    throw UnimplementedError();
   }
 
-  /// Disconnect from the Reverb server
-  void disconnect() {
-    final client = _client;
-    if (client == null) return;
-    client.disconnect();
-    _connectionStateSubscription?.cancel();
-    _connectionStateSubscription = null;
+  @override
+  Future<void> unsubscribe(String channelName) async {
+    await _channels.unsubscribe(channelName);
+    emitLog('ReverbService', 800, 'Unsubscribed from $channelName');
   }
 
-  /// Reinitialize the client with new configuration
-  /// Note: This creates a new client instance with updated configuration.
-  /// The old client instance will be discarded.
-  Future<void> reinitialize() async {
-    disconnect();
-    // Create a new client instance (singleton will be replaced)
-    _client = null;
-    await initialize();
-  }
-
-  /// Dispose of the service and clean up resources.
-  void dispose() {
-    _connectionStateSubscription?.cancel();
-    _connectionStateController.close();
+  @override
+  Future<void> unsubscribeAll() async {
+    await _channels.unsubscribeAll();
+    emitLog('ReverbService', 800, 'Unsubscribed from all channels');
   }
 }

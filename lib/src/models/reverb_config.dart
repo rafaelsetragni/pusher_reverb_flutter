@@ -1,14 +1,19 @@
+import 'package:web_socket_channel/io.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
+
 import '../../pusher_reverb_flutter.dart';
+import '../authentications/channel_authenticator.dart';
+import '../types/websocket_factory.dart';
 
 class ReverbConfig {
   /// Interval for sending ping messages to the server.
   final Duration pingInterval;
 
   /// The host of the Reverb server.
-  final String? host;
+  late final String? host;
 
   /// The port of the Reverb server.
-  final int port;
+  late final int port;
 
   /// The application key for the Reverb server.
   final String appKey;
@@ -32,7 +37,7 @@ class ReverbConfig {
   /// Whether to use TLS/SSL for secure WebSocket connections (wss://).
   /// If true, uses wss:// protocol. If false, uses ws:// protocol.
   /// Defaults to false.
-  final bool useTLS;
+  late final bool useTLS;
 
   /// Defines the amount of reconnection retries to reestablish automatically
   /// 0 means no retries.
@@ -50,6 +55,19 @@ class ReverbConfig {
   late final WebSocketFactory webSocketFactory;
 
   final Map<String, String>? additionalHeaders;
+
+  final ChannelAuthenticator channelAuthenticator;
+
+  @Deprecated('Use host, port, useTLS, and cluster directly instead')
+  String? get effectiveHost => host;
+  @Deprecated('Use host, port, useTLS, and cluster directly instead')
+  int? get effectivePort => port;
+  @Deprecated('Use host, port, useTLS, and cluster directly instead')
+  bool? get effectiveUseTLS => useTLS;
+
+  bool? get isUsingCluster => cluster != null;
+
+  late final ClusterConfig? _clusterConfig;
 
   /// Configures a instance of ReverbClient.
   ///
@@ -88,23 +106,128 @@ class ReverbConfig {
   /// Throws [StateError] if called without parameters when instance is not yet initialized.
   ReverbConfig({
     required this.appKey,
-    this.port = 8080,
-    this.host,
     this.apiKey,
+    int? port,
+    String? host,
     this.cluster,
     this.authorizer,
     this.authEndpoint,
     this.wsPath,
-    this.useTLS = false,
+    bool useTLS = false,
     this.reconnectAttempts = 10,
     this.reconnectDelay = const Duration(seconds: 1),
     this.maxReconnectDelay = const Duration(seconds: 30),
     this.pingInterval = const Duration(seconds: 30),
     this.additionalHeaders,
-    WebSocketFactory? ioWebSocketFactory,
-  }) : assert(
-         (host?.isEmpty ?? true) || (cluster?.isEmpty ?? true),
-         'Host or Cluster must be defined',
+    WebSocketFactory? webSocketFactory,
+    ChannelAuthenticator? channelAuthenticator,
+  }) : assert(apiKey?.isNotEmpty ?? true, 'API key cannot be empty'),
+       assert(appKey.isNotEmpty, 'App key must be defined'),
+       assert(cluster?.isNotEmpty ?? true, 'cluster cannot be empty'),
+       assert(
+         host?.isNotEmpty ?? cluster?.isNotEmpty == true,
+         'Host and Cluster cannot be defined at same time',
        ),
-       assert(port <= 0 || port > 65535, 'Port must be between 1 and 65535');
+       assert(
+         port == null || port > 0 && port <= 65535,
+         'Port must be between 1 and 65535',
+       ),
+       channelAuthenticator = channelAuthenticator ?? ChannelAuthenticator() {
+    this.webSocketFactory = webSocketFactory ?? createNewWebsocketConnection;
+
+    final clusterConfig = ClusterConfig.fromRegion(cluster);
+    assert(
+      cluster == null || clusterConfig != null,
+      'Invalid cluster configuration',
+    );
+
+    this.useTLS = clusterConfig?.useTLS ?? useTLS;
+    this.host = clusterConfig?.host ?? host;
+    this.port = clusterConfig?.port ?? port ?? 443;
+  }
+
+  WebSocketChannel createNewWebsocketConnection(
+    Uri url, {
+    Map<String, dynamic>? headers,
+  }) {
+    return IOWebSocketChannel.connect(url, headers: headers);
+  }
+
+  ReverbConfig copyWith({
+    Duration? pingInterval,
+    String? host,
+    int? port,
+    String? appKey,
+    String? apiKey,
+    String? cluster,
+    Authorizer? authorizer,
+    String? authEndpoint,
+    String? wsPath,
+    bool? useTLS,
+    int? reconnectAttempts,
+    Duration? reconnectDelay,
+    Duration? maxReconnectDelay,
+    WebSocketFactory? webSocketFactory,
+    Map<String, String>? additionalHeaders,
+  }) {
+    return ReverbConfig(
+      pingInterval: pingInterval ?? this.pingInterval,
+      host: host ?? this.host,
+      port: port ?? this.port,
+      appKey: appKey ?? this.appKey,
+      apiKey: apiKey ?? this.apiKey,
+      cluster: cluster ?? this.cluster,
+      authorizer: authorizer ?? this.authorizer,
+      authEndpoint: authEndpoint ?? this.authEndpoint,
+      wsPath: wsPath ?? this.wsPath,
+      useTLS: useTLS ?? this.useTLS,
+      reconnectAttempts: reconnectAttempts ?? this.reconnectAttempts,
+      reconnectDelay: reconnectDelay ?? this.reconnectDelay,
+      maxReconnectDelay: maxReconnectDelay ?? this.maxReconnectDelay,
+      webSocketFactory: webSocketFactory ?? this.webSocketFactory,
+      additionalHeaders: additionalHeaders ?? this.additionalHeaders,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is ReverbConfig &&
+            runtimeType == other.runtimeType &&
+            pingInterval == other.pingInterval &&
+            host == other.host &&
+            port == other.port &&
+            appKey == other.appKey &&
+            apiKey == other.apiKey &&
+            cluster == other.cluster &&
+            authorizer == other.authorizer &&
+            authEndpoint == other.authEndpoint &&
+            wsPath == other.wsPath &&
+            useTLS == other.useTLS &&
+            reconnectAttempts == other.reconnectAttempts &&
+            reconnectDelay == other.reconnectDelay &&
+            maxReconnectDelay == other.maxReconnectDelay &&
+            additionalHeaders.toString() ==
+                other.additionalHeaders.toString() &&
+            webSocketFactory == other.webSocketFactory;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    pingInterval,
+    host,
+    port,
+    appKey,
+    apiKey,
+    cluster,
+    authorizer,
+    authEndpoint,
+    wsPath,
+    useTLS,
+    reconnectAttempts,
+    reconnectDelay,
+    maxReconnectDelay,
+    additionalHeaders.toString(),
+    webSocketFactory,
+  );
 }

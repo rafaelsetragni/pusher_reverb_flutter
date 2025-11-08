@@ -79,7 +79,8 @@ class ClusterConfig {
   static Iterable<String> get availableClusters => _clusters.keys;
 
   /// Factory that resolves a cluster configuration from a region name.
-  static ClusterConfig? fromRegion(String region) {
+  static ClusterConfig? fromRegion(String? region) {
+    if (region == null) return null;
     return _clusters[region];
   }
 
@@ -101,36 +102,5 @@ class ClusterConfig {
   @override
   int get hashCode {
     return Object.hash(host, port, useTLS, region);
-  }
-}
-
-/// Resolved configuration after applying cluster settings.
-///
-/// This internal class holds the final configuration values after
-/// cluster resolution and parameter priority application.
-class ResolvedConfig {
-  /// The final host address.
-  final String host;
-
-  /// The final port number.
-  final int port;
-
-  /// The final TLS setting.
-  final bool useTLS;
-
-  /// Additional headers from cluster configuration.
-  final Map<String, String> additionalHeaders;
-
-  /// Creates a new ResolvedConfig.
-  const ResolvedConfig({
-    required this.host,
-    required this.port,
-    required this.useTLS,
-    required this.additionalHeaders,
-  });
-
-  @override
-  String toString() {
-    return 'ResolvedConfig(host: $host, port: $port, useTLS: $useTLS)';
   }
 }

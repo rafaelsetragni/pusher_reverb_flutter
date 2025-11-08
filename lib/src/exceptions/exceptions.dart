@@ -85,12 +85,7 @@ class ChannelException extends PusherException {
   const ChannelException._(super.message, {this.channelName});
 
   @override
-  String toString() {
-    final channelInfo = channelName != null
-        ? ' for channel "$channelName"'
-        : '';
-    return 'ChannelException: $message$channelInfo';
-  }
+  String toString() => 'ChannelException: $message';
 
   factory ChannelException.mismatchedChannelType(
     String channelType,
@@ -100,8 +95,24 @@ class ChannelException extends PusherException {
     channelName: channelName,
   );
 
+  factory ChannelException.authorizerNotConfigured(String channelName) =>
+      ChannelException._(
+        'Authorizer and authEndpoint must be configured for private channels',
+        channelName: channelName,
+      );
+
+  factory ChannelException.missingAuthKey() =>
+      ChannelException._('Private channels require authentication');
+
   factory ChannelException.withoutAuthentication() =>
       ChannelException._('Private channels requires authentication');
+}
+
+class ReverbClientException extends PusherException {
+  ReverbClientException._(super.message);
+
+  factory ReverbClientException.missingConfiguration() =>
+      ReverbClientException._('');
 }
 
 /// Exception thrown when a channel name is invalid.
