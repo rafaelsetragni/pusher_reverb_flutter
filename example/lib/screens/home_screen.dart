@@ -19,12 +19,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String? _connectionError;
 
-  Future<void> _initializeConnection() async {
-    if (!ReverbService().isInitialized) {
-      await ReverbService().initialize();
-    }
-  }
-
   bool get isDisconnected =>
       ReverbService().connectionState ==
       reverb.ReverbConnectionState.disconnected;
@@ -74,9 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
             centerTitle: true,
           ),
           body: RefreshIndicator(
-            onRefresh: () async {
-              await _initializeConnection();
-            },
+            onRefresh: () async {},
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16),

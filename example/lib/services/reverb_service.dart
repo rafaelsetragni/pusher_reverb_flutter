@@ -1,20 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
-import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart' as rb;
+import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import '../exceptions/service_exceptions.dart';
-import '../models/reverb_config.dart';
 
 part 'reverb_channel_service.dart';
 part 'reverb_connection_service.dart';
-
-typedef ChannelEvent = rb.ChannelEvent;
-
-typedef WebsocketChannel = rb.ReverbChannel;
-typedef WebsocketPublicChannel = rb.ReverbPublicChannel;
-typedef WebsocketPrivateChannel = rb.ReverbPrivateChannel;
-typedef WebsocketEncryptedChannel = rb.ReverbEncryptedChannel;
 
 abstract class ReverbLogListener {
   void onReverbLog(String name, int logLevel, String message, [dynamic error]);
@@ -32,8 +23,8 @@ abstract class ReverbService {
   ReverbConfig get currentConfig;
   bool get isConnected;
 
-  rb.ReverbConnectionState get connectionState;
-  Stream<rb.ReverbConnectionState> get onConnectionStateChange;
+  ReverbConnectionState get connectionState;
+  Stream<ReverbConnectionState> get onConnectionStateChange;
 
   String? get socketId;
 
@@ -41,7 +32,9 @@ abstract class ReverbService {
 
   String? get cluster;
 
-  Future<ReverbConfig> loadConfiguration();
+  Future<void> initialize();
+
+  Future<ReverbConfig?> loadConfiguration();
   Future<void> saveConfiguration(ReverbConfig config);
 
   // --- Logging listeners ---
@@ -49,11 +42,13 @@ abstract class ReverbService {
   void removeLogListener(ReverbLogListener listener);
 
   // --- Channels (delegates to ReverbChannelService) ---
-  Future<WebsocketPublicChannel> registerPublicChannel(String channelName);
+  Future<ReverbPublicChannel> registerPublicChannel(String channelName);
 
-  Future<WebsocketPrivateChannel> registerPrivateChannel(String channelName);
+  Future<ReverbPrivateChannel> registerPrivateChannel(String channelName);
 
-  WebsocketEncryptedChannel registerEncryptedChannel(
+  Future<ReverbPresenceChannel> registerPresenceChannel(String channelName);
+
+  Future<ReverbEncryptedChannel> registerEncryptedChannel(
     String channelName, {
     required String encryptionMasterKey,
   });
@@ -61,9 +56,11 @@ abstract class ReverbService {
   Future<void> unsubscribe(String channelName);
   Future<void> unsubscribeAll();
 
-  Future<void> connect() async {}
+  Future<void> connect();
 
-  Future<void> disconnect() async {}
+  Future<void> disconnect();
+
+  Future<void> setConfiguration(ReverbConfig config);
 }
 
 /// Concrete implementation hidden behind [ReverbService].
@@ -91,21 +88,25 @@ class ReverbServiceImpl implements ReverbService {
 
   @override
   bool get isConnected =>
-      _connection.currentConnectionState == rb.ReverbConnectionState.connected;
+      _connection.currentConnectionState == ReverbConnectionState.connected;
 
   @override
-  rb.ReverbConnectionState get connectionState =>
+  ReverbConnectionState get connectionState =>
       _connection.currentConnectionState;
 
   @override
-  Future<ReverbConfig> loadConfiguration() => _connection.loadConfiguration();
+  Future<void> initialize() => _connection.initialize();
 
   @override
-  Future<void> saveConfiguration(ReverbConfig config) =>
-      _connection.saveConfiguration(config);
+  Future<ReverbConfig?> loadConfiguration() => _connection.loadConfiguration();
 
   @override
-  Stream<rb.ReverbConnectionState> get onConnectionStateChange =>
+  Future<void> saveConfiguration(ReverbConfig config) {
+    return _connection.saveConfiguration(config);
+  }
+
+  @override
+  Stream<ReverbConnectionState> get onConnectionStateChange =>
       _connection.onConnectionStateChange;
 
   @override
@@ -136,9 +137,7 @@ class ReverbServiceImpl implements ReverbService {
   // --- Channels ---
 
   @override
-  Future<WebsocketPublicChannel> registerPublicChannel(
-    String channelName,
-  ) async {
+  Future<ReverbPublicChannel> registerPublicChannel(String channelName) async {
     final channel = await _channels.registerPublicChannel(channelName);
     // Example of emitting a log via the facade when subscription succeeds.
     emitLog('ReverbService', 20, 'Subscribed to $channelName');
@@ -146,7 +145,7 @@ class ReverbServiceImpl implements ReverbService {
   }
 
   @override
-  Future<WebsocketPrivateChannel> registerPrivateChannel(
+  Future<ReverbPrivateChannel> registerPrivateChannel(
     String channelName,
   ) async {
     final channel = await _channels.registerPrivateChannel(channelName);
@@ -156,12 +155,27 @@ class ReverbServiceImpl implements ReverbService {
   }
 
   @override
-  WebsocketEncryptedChannel registerEncryptedChannel(
+  Future<ReverbPresenceChannel> registerPresenceChannel(
+    String channelName,
+  ) async {
+    final channel = await _channels.registerPresenceChannel(channelName);
+    // Example of emitting a log via the facade when subscription succeeds.
+    emitLog('ReverbService', 20, 'Subscribed to $channelName');
+    return channel;
+  }
+
+  @override
+  Future<ReverbEncryptedChannel> registerEncryptedChannel(
     String channelName, {
     required String encryptionMasterKey,
-  }) {
-    // TODO: implement createEncryptedChannel
-    throw UnimplementedError();
+  }) async {
+    final channel = await _channels.registerEncryptedChannel(
+      channelName,
+      encryptionMasterKey: encryptionMasterKey,
+    );
+    // Example of emitting a log via the facade when subscription succeeds.
+    emitLog('ReverbService', 20, 'Subscribed to $channelName');
+    return channel;
   }
 
   @override
@@ -174,5 +188,12 @@ class ReverbServiceImpl implements ReverbService {
   Future<void> unsubscribeAll() async {
     await _channels.unsubscribeAll();
     emitLog('ReverbService', 800, 'Unsubscribed from all channels');
+  }
+
+  @override
+  Future<void> setConfiguration(ReverbConfig config) async {
+    _connection.client
+      ?..disconnect()
+      ..setConfiguration(config);
   }
 }

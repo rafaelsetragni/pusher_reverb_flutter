@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../pusher_reverb_flutter.dart';
-import '../listeners/reverb_event_listener.dart';
-import '../models/reverb_config.dart';
 import '../streams/state_stream.dart';
 import '../utils/delay_util.dart';
 import '../utils/json_util.dart';
@@ -22,11 +20,15 @@ class ReverbClientImpl extends ReverbClient
         ReverbChannelConnectionImpl,
         ReverbRemoteEventsImpl {
   @override
-  final ReverbConfig reverbConfig;
+  ReverbConfig reverbConfig;
+
   @override
   ReverbClientImpl(this.reverbConfig) {
-    remoteEventController.stream.listen((event) {
-      handleMessage(reverbConfig, event);
-    });
+    remoteEventController.stream.listen(handleRemoteEvent);
   }
+
+  void handleRemoteEvent(event) => handleMessage(reverbConfig, event);
+
+  @override
+  void setConfiguration(ReverbConfig config) => reverbConfig = config;
 }

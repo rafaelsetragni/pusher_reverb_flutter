@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart';
 
 import '../services/reverb_service.dart';
 import '../widgets/event_list_item.dart';
@@ -16,7 +17,7 @@ class _PrivateChannelScreenState extends State<PrivateChannelScreen> {
     text: 'private-user-123',
   );
 
-  PrivateChannel? _channel;
+  ReverbPrivateChannel? _channel;
   final List<ChannelEvent> _events = [];
   bool _isSubscribed = false;
   bool _isLoading = false;
@@ -56,7 +57,7 @@ class _PrivateChannelScreenState extends State<PrivateChannelScreen> {
       }
 
       // Get or create the private channel and subscribe (this will trigger authentication)
-      _channel = _reverbService.subscribeToPrivateChannel(channelName);
+      _channel = await _reverbService.registerPrivateChannel(channelName);
 
       // Listen to all events via the stream API
       _channel!.stream.listen((event) {

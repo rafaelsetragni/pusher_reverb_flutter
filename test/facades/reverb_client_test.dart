@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart';
-import 'package:pusher_reverb_flutter/src/models/reverb_config.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'reverb_client_test.mocks.dart';
@@ -47,72 +46,104 @@ void main() {
       streamController.close();
     });
 
-    test('connects and handles connection_established event', () async {
-      // Arrange
-      final client = ReverbClientBuilder()
-          .setConfiguration(
-            ReverbConfig(
-              host: 'localhost',
-              appKey: 'test-key',
-              webSocketFactory: (Uri uri, {Map<String, dynamic>? headers}) =>
-                  mockChannel,
-            ),
-          )
-          .build();
+    group('ReverbClient basic methods', () {
+      test('connects and handles connection_established event', () async {
+        // Arrange
+        final client = ReverbClientBuilder()
+            .setConfiguration(
+              ReverbConfig(
+                host: 'localhost',
+                appKey: 'test-key',
+                webSocketFactory: (Uri uri, {Map<String, dynamic>? headers}) =>
+                    mockChannel,
+              ),
+            )
+            .build();
 
-      // Act
-      setupSuccessConnectionResponse();
-      await client.connect();
-      // Assert
-      await Future.delayed(Duration.zero);
-      expect(client.socketId, '12345');
-      client.disconnect();
-    });
+        // Act
+        setupSuccessConnectionResponse();
+        await client.connect();
+        // Assert
+        await Future.delayed(Duration.zero);
+        expect(client.socketId, '12345');
+        client.disconnect();
+      });
 
-    test('handles connection error', () async {
-      // Arrange
-      final client = ReverbClientBuilder()
-          .setConfiguration(
-            ReverbConfig(
-              host: 'localhost',
-              appKey: 'test-app',
-              wsPath: '/api/websocket',
-              webSocketFactory: (Uri uri, {Map<String, dynamic>? headers}) {
-                return mockChannel;
-              },
-            ),
-          )
-          .build();
+      test('handles connection error', () async {
+        // Arrange
+        final client = ReverbClientBuilder()
+            .setConfiguration(
+              ReverbConfig(
+                host: 'localhost',
+                appKey: 'test-app',
+                wsPath: '/api/websocket',
+                webSocketFactory: (Uri uri, {Map<String, dynamic>? headers}) {
+                  return mockChannel;
+                },
+              ),
+            )
+            .build();
 
-      // Act
-      setupFailureConnectionResponse();
-      final future = client.connect();
+        // Act
+        setupFailureConnectionResponse();
+        final future = client.connect();
 
-      // Assert
-      await expectLater(future, throwsA(isA<ConnectionException>()));
-      client.disconnect();
-    });
+        // Assert
+        await expectLater(future, throwsA(isA<ConnectionException>()));
+        client.disconnect();
+      });
 
-    test('disconnect closes the channel sink', () async {
-      // Arrange
-      final client = ReverbClientBuilder()
-          .setConfiguration(
-            ReverbConfig(
-              host: 'localhost',
-              appKey: 'test-key',
-              webSocketFactory: (Uri uri, {Map<String, dynamic>? headers}) =>
-                  mockChannel,
-            ),
-          )
-          .build();
+      test('disconnect closes the channel sink', () async {
+        // Arrange
+        final client = ReverbClientBuilder()
+            .setConfiguration(
+              ReverbConfig(
+                host: 'localhost',
+                appKey: 'test-key',
+                webSocketFactory: (Uri uri, {Map<String, dynamic>? headers}) =>
+                    mockChannel,
+              ),
+            )
+            .build();
 
-      // Act
-      setupSuccessConnectionResponse();
-      await client.connect();
-      client.disconnect();
+        // Act
+        setupSuccessConnectionResponse();
+        await client.connect();
+        client.disconnect();
 
-      // Assert
-      verify(mockSink.close()).called(1);
+        // Assert
+        verify(mockSink.close()).called(1);
+      });
+
+      test(
+        'unsubscribeAllChannels unsubscribe all channels subscribed',
+        () async {
+          // Arrange
+          final client = ReverbClientBuilder()
+              .setConfiguration(
+                ReverbConfig(
+                  host: 'localhost',
+                  appKey: 'test-key',
+                  webSocketFactory:
+                      (Uri uri, {Map<String, dynamic>? headers}) => mockChannel,
+                ),
+              )
+              .build();
+          setupSuccessConnectionResponse();
+          await client.connect();
+
+          // Add multiple channels
+          client.subscribePublicChannel(channelName: 'channel1');
+          client.subscribePublicChannel(channelName: 'channel2');
+          client.subscribePublicChannel(channelName: 'channel3');
+
+          // Act: Disconnect should handle concurrent operations safely
+          client.unsubscribeAllChannels();
+
+          // Assert: All channels should be cleared without errors
+          expect(client.subscribedChannels, isEmpty);
+        },
+      );
     });
 
     group('wsPath configuration', () {
@@ -561,6 +592,62 @@ void main() {
 
         // Assert disconnected state
         expect(client.connectionState, ReverbConnectionState.disconnected);
+      });
+
+      test('setConfiguration updates the internal configuration', () {
+        // Arrange
+        final initialConfig = ReverbConfig(
+          host: 'localhost',
+          appKey: 'initial-key',
+          webSocketFactory: (Uri uri, {Map<String, dynamic>? headers}) =>
+              mockChannel,
+        );
+        final updatedConfig = ReverbConfig(
+          host: 'localhost',
+          appKey: 'updated-key',
+          webSocketFactory: (Uri uri, {Map<String, dynamic>? headers}) =>
+              mockChannel,
+        );
+        final client = ReverbClientBuilder()
+            .setConfiguration(initialConfig)
+            .build();
+
+        // Act
+        client.setConfiguration(updatedConfig);
+
+        // Assert
+        expect(client.reverbConfig.appKey, equals('updated-key'));
+      });
+
+      test('connection with apiKey in the constructor', () async {
+        // Arrange
+        Map<String, dynamic>? capturedHeaders;
+        final client = ReverbClientBuilder()
+            .setConfiguration(
+              ReverbConfig(
+                host: 'localhost',
+                appKey: 'test-key',
+                apiKey: 'api-key',
+                additionalHeaders: {'test-header': 'test-value'},
+                webSocketFactory: (Uri uri, {Map<String, dynamic>? headers}) {
+                  capturedHeaders = headers;
+                  return mockChannel;
+                },
+              ),
+            )
+            .build();
+
+        // Act
+        setupSuccessConnectionResponse();
+        await client.connect();
+        await Future.delayed(Duration.zero);
+
+        // Assert
+        expect(capturedHeaders, isNotNull);
+        expect(capturedHeaders?['Authorization'], 'Bearer api-key');
+        expect(capturedHeaders?['test-header'], 'test-value');
+
+        client.disconnect();
       });
 
       test('connection state stream supports multiple listeners', () async {

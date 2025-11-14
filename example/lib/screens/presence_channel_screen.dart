@@ -12,7 +12,7 @@ class PresenceChannelScreen extends StatefulWidget {
 }
 
 class _PresenceChannelScreenState extends State<PresenceChannelScreen> {
-  final _reverbService = ReverbService.instance;
+  final _reverbService = ReverbService();
   final _channelNameController = TextEditingController(
     text: 'presence-chat-room',
   );
@@ -32,7 +32,7 @@ class _PresenceChannelScreenState extends State<PresenceChannelScreen> {
   }
 
   Future<void> _subscribe() async {
-    if (_reverbService.client == null) {
+    if (!_reverbService.isConnected) {
       setState(() {
         _error = 'Please connect to the server first from the Home screen';
       });
@@ -59,7 +59,7 @@ class _PresenceChannelScreenState extends State<PresenceChannelScreen> {
       }
 
       // Get or create the presence channel and subscribe (this will trigger authentication)
-      _channel = _reverbService.client!.subscribePresenceChannel(channelName);
+      _channel = await _reverbService.registerPresenceChannel(channelName);
 
       // Get initial member list
       setState(() {

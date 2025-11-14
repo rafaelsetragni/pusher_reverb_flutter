@@ -8,8 +8,7 @@ import 'screens/settings_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  ReverbService().loadConfiguration().then((configuration) async {
-    await ReverbService().saveConfiguration(configuration);
+  ReverbService().initialize().then((value) {
     runApp(const MyApp());
   });
 }

@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart';
 
 import '../services/reverb_service.dart';
 import '../widgets/event_list_item.dart';
@@ -14,7 +17,8 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
   final _channelNameController = TextEditingController(text: 'notifications');
   final _eventNameController = TextEditingController(text: 'message');
 
-  Stream? _channelStream;
+  ReverbChannel? _subscribedChannel;
+  StreamSubscription<dynamic>? _channelSubscription;
   final List<ChannelEvent> _events = [];
   bool _isSubscribed = false;
   bool _isLoading = false;
@@ -27,6 +31,7 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
   void dispose() {
     _channelNameController.dispose();
     _eventNameController.dispose();
+    _channelSubscription?.cancel();
     _unsubscribe();
     super.dispose();
   }
@@ -51,24 +56,16 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
 
       // Get or create the channel and subscribe
       final channel = await ReverbService().registerPublicChannel(channelName);
-      if (channel == null) {
-        setState(() {
-          _error = 'The channel name is invalid or not available';
-        });
-        return;
-      }
 
       setState(() {
-        _channelStream = channel.stream;
+        _subscribedChannel = channel;
         _isSubscribed = true;
         _isLoading = false;
       });
 
-      // Listen to ALL events via the stream API
-      channel.stream.listen((event) {
+      _channelSubscription = channel.stream.listen((event) {
         setState(() {
           _events.insert(0, event);
-          // Keep only the last 50 events
           if (_events.length > 50) {
             _events.removeLast();
           }
@@ -103,13 +100,13 @@ class _PublicChannelScreenState extends State<PublicChannelScreen> {
   }
 
   Future<void> _unsubscribe() async {
-    final channel = _channelStream;
-    if (channel == null) return;
     try {
-      await channel.unsubscribe();
+      await _channelSubscription?.cancel();
+      await _subscribedChannel?.unsubscribe();
       setState(() {
         _isSubscribed = false;
-        _channelStream = null;
+        _subscribedChannel = null;
+        _channelSubscription = null;
       });
     } catch (e) {
       setState(() {

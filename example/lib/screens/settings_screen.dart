@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart';
 
-import '../models/reverb_config.dart';
 import '../services/reverb_service.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -42,7 +42,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _appKeyController = TextEditingController(text: config.appKey);
     _authEndpointController = TextEditingController(text: config.authEndpoint);
     _wsPathController = TextEditingController(text: config.wsPath);
-    _authTokenController = TextEditingController(text: config.authToken);
     _apiKeyController = TextEditingController(text: config.apiKey);
     _clusterController = TextEditingController(text: config.cluster);
     _useTLS = config.useTLS;
@@ -59,19 +58,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     try {
       final config = ReverbConfig(
-        host: _hostController.text.trim(),
+        host: _hostController.text == '' ? null : _hostController.text.trim(),
+        cluster: _clusterController.text == ''
+            ? null
+            : _clusterController.text.trim(),
         port: int.parse(_portController.text.trim()),
         appKey: _appKeyController.text.trim(),
         authEndpoint: _authEndpointController.text.trim(),
         wsPath: _wsPathController.text.trim(),
-        authToken: _authTokenController.text.trim(),
         useTLS: _useTLS,
         apiKey: _apiKeyController.text.trim(),
-        cluster: _clusterController.text.trim(),
       );
 
       await ReverbService().saveConfiguration(config);
-      await ReverbService().reinitialize();
+      await ReverbService().setConfiguration(config);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -210,6 +210,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
+                    SwitchListTile(
+                      title: const Text('Use TLS/SSL (wss://)'),
+                      subtitle: Text(
+                        _useTLS
+                            ? 'Secure WebSocket connection (wss://)'
+                            : 'Standard WebSocket connection (ws://)',
+                      ),
+                      value: _useTLS,
+                      onChanged: (value) {
+                        setState(() {
+                          _useTLS = value;
+                        });
+                      },
+                      secondary: Icon(_useTLS ? Icons.lock : Icons.lock_open),
+                    ),
+                    const SizedBox(height: 16),
                     TextFormField(
                       controller: _hostController,
                       decoration: const InputDecoration(
@@ -224,6 +240,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         }
                         return null;
                       },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _clusterController,
+                      decoration: const InputDecoration(
+                        labelText: 'Cluster (Optional)',
+                        hintText: 'us-east-1',
+                        prefixIcon: Icon(Icons.cloud),
+                        helperText:
+                            'Optional: Predefined cluster configuration (us-east-1, eu-west-1, local, etc.)',
+                      ),
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -280,22 +307,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    SwitchListTile(
-                      title: const Text('Use TLS/SSL (wss://)'),
-                      subtitle: Text(
-                        _useTLS
-                            ? 'Secure WebSocket connection (wss://)'
-                            : 'Standard WebSocket connection (ws://)',
-                      ),
-                      value: _useTLS,
-                      onChanged: (value) {
-                        setState(() {
-                          _useTLS = value;
-                        });
-                      },
-                      secondary: Icon(_useTLS ? Icons.lock : Icons.lock_open),
-                    ),
-                    const SizedBox(height: 16),
                     TextFormField(
                       controller: _apiKeyController,
                       decoration: InputDecoration(
@@ -317,17 +328,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                       obscureText: !_showApiKey,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _clusterController,
-                      decoration: const InputDecoration(
-                        labelText: 'Cluster (Optional)',
-                        hintText: 'us-east-1',
-                        prefixIcon: Icon(Icons.cloud),
-                        helperText:
-                            'Optional: Predefined cluster configuration (us-east-1, eu-west-1, local, etc.)',
-                      ),
                     ),
                   ],
                 ),
@@ -365,30 +365,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         }
                         return null;
                       },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _authTokenController,
-                      decoration: InputDecoration(
-                        labelText: 'Auth Token (Optional)',
-                        hintText: 'Bearer token for authentication',
-                        prefixIcon: const Icon(Icons.token),
-                        helperText:
-                            'Optional: Bearer token for private channels',
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _showAuthToken
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _showAuthToken = !_showAuthToken;
-                            });
-                          },
-                        ),
-                      ),
-                      obscureText: !_showAuthToken,
                     ),
                   ],
                 ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart';
 
 import '../services/reverb_service.dart';
 import '../widgets/event_list_item.dart';
@@ -19,7 +20,7 @@ class _EncryptedChannelScreenState extends State<EncryptedChannelScreen> {
     text: 'your-32-byte-base64-encoded-key',
   );
 
-  WebsocketEncryptedChannel? _channel;
+  ReverbEncryptedChannel? _channel;
   final List<ChannelEvent> _events = [];
   bool _isSubscribed = false;
   bool _isLoading = false;
@@ -73,13 +74,10 @@ class _EncryptedChannelScreenState extends State<EncryptedChannelScreen> {
       }
 
       // Get or create the encrypted channel
-      _channel = _reverbService.createEncryptedChannel(
+      _channel = await _reverbService.registerEncryptedChannel(
         channelName,
         encryptionMasterKey: encryptionKey,
       );
-
-      // Subscribe to the channel (this will trigger authentication)
-      await _channel!.subscribe();
 
       // Listen to all events via the stream API
       _channel!.stream.listen((event) {

@@ -121,8 +121,7 @@ class ReverbConfig {
     this.additionalHeaders,
     WebSocketFactory? webSocketFactory,
     ChannelAuthenticator? channelAuthenticator,
-  }) : assert(apiKey?.isNotEmpty ?? true, 'API key cannot be empty'),
-       assert(appKey.isNotEmpty, 'App key must be defined'),
+  }) : assert(appKey.isNotEmpty, 'App key must be defined'),
        assert(cluster?.isNotEmpty ?? true, 'cluster cannot be empty'),
        assert(
          host?.isNotEmpty ?? cluster?.isNotEmpty == true,
@@ -151,6 +150,51 @@ class ReverbConfig {
     Map<String, dynamic>? headers,
   }) {
     return IOWebSocketChannel.connect(url, headers: headers);
+  }
+
+  static ReverbConfig fromJson(Map<String, Object?> json) {
+    return ReverbConfig(
+      appKey: json['appKey'] as String,
+      apiKey: json['apiKey'] as String?,
+      host: json['host'] as String?,
+      port: json['port'] as int?,
+      cluster: json['cluster'] as String?,
+      authEndpoint: json['authEndpoint'] as String?,
+      wsPath: json['wsPath'] as String?,
+      useTLS: json['useTLS'] as bool? ?? false,
+      reconnectAttempts: json['reconnectAttempts'] as int? ?? 10,
+      reconnectDelay: Duration(
+        milliseconds: json['reconnectDelayMs'] as int? ?? 1000,
+      ),
+      maxReconnectDelay: Duration(
+        milliseconds: json['maxReconnectDelayMs'] as int? ?? 30000,
+      ),
+      pingInterval: Duration(
+        milliseconds: json['pingIntervalMs'] as int? ?? 30000,
+      ),
+      additionalHeaders: (json['additionalHeaders'] as Map?)?.map(
+        (k, v) => MapEntry(k.toString(), v.toString()),
+      ),
+      channelAuthenticator: ChannelAuthenticator(),
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'appKey': appKey,
+      'apiKey': apiKey,
+      'host': host,
+      'port': port,
+      'cluster': cluster,
+      'authEndpoint': authEndpoint,
+      'wsPath': wsPath,
+      'useTLS': useTLS,
+      'reconnectAttempts': reconnectAttempts,
+      'reconnectDelayMs': reconnectDelay.inMilliseconds,
+      'maxReconnectDelayMs': maxReconnectDelay.inMilliseconds,
+      'pingIntervalMs': pingInterval.inMilliseconds,
+      'additionalHeaders': additionalHeaders,
+    };
   }
 
   ReverbConfig copyWith({

@@ -1,8 +1,6 @@
 import 'dart:async';
 
 import '../../pusher_reverb_flutter.dart';
-import '../listeners/reverb_event_listener.dart';
-import '../models/reverb_config.dart';
 import 'reverb_client_impl.dart';
 
 class ReverbClientBuilder {
@@ -106,6 +104,11 @@ abstract class ReverbClient {
   /// If the channel is not subscribed, this has no effect.
   void unsubscribeChannel(String channelName);
 
+  /// Unsubscribes from the channel with the given name.
+  ///
+  /// If the channel is not subscribed, this has no effect.
+  void unsubscribeAllChannels();
+
   /// Adds a global event listener to receive events from all channels.
   ///
   /// The [listener] will be notified of relevant Reverb events.
@@ -118,4 +121,6 @@ abstract class ReverbClient {
   ///
   /// This is an advanced method used for internal signaling or custom events.
   void sendMessage(dynamic message);
+
+  void setConfiguration(ReverbConfig config);
 }

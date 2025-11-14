@@ -128,6 +128,13 @@ mixin ReverbChannelConnectionImpl on ReverbClient
       ..dispose();
   }
 
+  @override
+  void unsubscribeAllChannels() {
+    channels
+      ..forEach((_, channel) => channel.unsubscribe())
+      ..clear();
+  }
+
   /// Gets a channel by name if it exists.
   @override
   ReverbChannel? getChannel(String channelName) {

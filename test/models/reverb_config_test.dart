@@ -250,4 +250,42 @@ void main() {
       );
     });
   });
+
+  group('Serialization', () {
+    test('should serialize and deserialize correctly with toJson/fromJson', () {
+      final original = ReverbConfig(
+        appKey: 'app-key',
+        host: 'localhost',
+        port: 1234,
+        apiKey: 'api-key',
+        authEndpoint: 'https://auth.example.com',
+        wsPath: '/ws',
+        useTLS: true,
+        reconnectAttempts: 5,
+        reconnectDelay: Duration(seconds: 2),
+        maxReconnectDelay: Duration(seconds: 30),
+        pingInterval: Duration(seconds: 10),
+        additionalHeaders: {'X-Header': 'Value'},
+      );
+
+      final json = original.toJson();
+      final fromJson = ReverbConfig.fromJson(json);
+
+      expect(fromJson.appKey, equals(original.appKey));
+      expect(fromJson.host, equals(original.host));
+      expect(fromJson.port, equals(original.port));
+      expect(fromJson.apiKey, equals(original.apiKey));
+      expect(fromJson.authEndpoint, equals(original.authEndpoint));
+      expect(fromJson.wsPath, equals(original.wsPath));
+      expect(fromJson.useTLS, equals(original.useTLS));
+      expect(fromJson.reconnectAttempts, equals(original.reconnectAttempts));
+      expect(fromJson.reconnectDelay, equals(original.reconnectDelay));
+      expect(fromJson.maxReconnectDelay, equals(original.maxReconnectDelay));
+      expect(fromJson.pingInterval, equals(original.pingInterval));
+      expect(fromJson.additionalHeaders, equals(original.additionalHeaders));
+
+      expect(fromJson.authorizer, isNull);
+      expect(fromJson.webSocketFactory, isNotNull);
+    });
+  });
 }

@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart';
-import 'package:pusher_reverb_flutter/src/models/reverb_config.dart';
 
 void main() {
   group('ReverbClient API Key and Cluster Tests', () {
@@ -29,7 +28,16 @@ void main() {
         expect(config.apiKey, isNull);
       });
 
-      test('should throw exception for empty API key', () {
+      test('should not throw exception for null or empty API key', () {
+        expect(
+          () => ReverbConfig(
+            host: 'localhost',
+            port: 8080,
+            appKey: 'test-app-key',
+            apiKey: null,
+          ),
+          returnsNormally,
+        );
         expect(
           () => ReverbConfig(
             host: 'localhost',
@@ -37,7 +45,7 @@ void main() {
             appKey: 'test-app-key',
             apiKey: '', // Empty API key
           ),
-          throwsAssertionError,
+          returnsNormally,
         );
       });
     });
